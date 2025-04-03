@@ -5,6 +5,7 @@ from datetime import datetime
 import threading
 
 class DBManager:
+
     def __init__(self, db_file=None):
         if db_file is None:
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,6 +20,7 @@ class DBManager:
         self.lock = threading.Lock()
         self.create_table()
 
+
     def create_table(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS foot_logs (
@@ -31,6 +33,7 @@ class DBManager:
         ''')
         self.conn.commit()
 
+
     def insert_log(self, object_id, object_type, foot_path, timestamp=None):
         if timestamp is None:
             timestamp = datetime.now().isoformat(timespec='seconds')
@@ -42,9 +45,11 @@ class DBManager:
             ''', (timestamp, object_id, object_type, foot_path_json))
             self.conn.commit()
 
+
     def fetch_logs(self):
         self.cursor.execute('SELECT * FROM foot_logs')
         return self.cursor.fetchall()
+
 
     def fetch_logs_by_timestamp_range(self, start_ts, end_ts):
         self.cursor.execute('''
@@ -52,6 +57,7 @@ class DBManager:
             WHERE timestamp >= ? AND timestamp < ?
         ''', (start_ts, end_ts))
         return self.cursor.fetchall()
+
 
     def fetch_logs_by_timestamp_and_type(self, start_ts, end_ts, object_type):
         self.cursor.execute('''
@@ -61,8 +67,10 @@ class DBManager:
         ''', (start_ts, end_ts, object_type))
         return self.cursor.fetchall()
 
+
     def close(self):
         self.conn.close()
+
 
 def convert_to_timestamp(date_str, time_str):
     dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")

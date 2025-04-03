@@ -1,17 +1,24 @@
 import cv2
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
+
 from ultralytics import YOLO
+from utils.ConfigManager import ConfigManager
 
 
-model = YOLO("yolov5xu.pt")
-model.to("cuda")
+config_manager = ConfigManager()
+yolo_cfg = config_manager.get_yolo_config()
+
+model = YOLO(yolo_cfg["version"])
+model.to(yolo_cfg["device"])
+
+imgsz = yolo_cfg.get("imgsz")
 
 def run_inference(img):
 
     frame_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    results = model(frame_rgb, classes=[0, 1, 2, 3])
+    results = model(frame_rgb, classes=[0, 1, 2, 3], verbose=False, imgsz=imgsz)
 
     result = results[0]
 

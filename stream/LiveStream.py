@@ -6,6 +6,8 @@ import cv2
 import time
 
 from PyQt5 import QtCore
+
+from utils.ConfigManager import ConfigManager
 from region import RegionEditor
 
 from detection.DetectedObject import DetectedObject
@@ -17,6 +19,8 @@ from detection.Inference import calculate_foot_location
 from detection.PathUpdater import task_queue
 from stream.VideoFrameReader import VideoFrameReader
 
+config_manager = ConfigManager()
+infer_cfg = config_manager.get_inference_config()
 
 def get_container(url):
     streams = streamlink.streams(url)
@@ -171,13 +175,12 @@ def draw_region_info(img, detected_objects):
     return img
 
 
-def stream_generator(source_url, polygons_file, skip_frames=2, max_latency=0.5, max_frame_gap=5.0):
-    """
-    Yields processed frames (with detections, overlays, etc.) and detected objects.
-    For video recordings, uses VideoFrameReader for accurate timing (no sleep calls),
-    decoupling frame timing from inference.
-    For live streams, it falls back to the original av/streamlink logic.
-    """
+def stream_generator(source_url, polygons_file):
+
+    skip_frames = infer_cfg.get("skip_frames", 0)
+    max_latency = infer_cfg.get("max_latency", 0.5)
+    max_frame_gap = infer_cfg.get("max_frame_gap", 5.0)
+
     persistent_objects = {}
     RegionEditor.region_json_file = polygons_file
     RegionEditor.load_polygons()
