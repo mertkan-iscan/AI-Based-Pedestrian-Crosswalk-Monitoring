@@ -1,0 +1,10 @@
+numpy
+opencv-python
+ultralytics
+scipy
+
+streamlink
+av
+
+PyQt5
+qdarkstyle
