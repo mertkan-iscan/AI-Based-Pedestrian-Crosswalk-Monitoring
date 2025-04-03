@@ -12,7 +12,9 @@ region_json_file = None
 area_colors = {
     "crosswalk": (0, 255, 255),
     "road": (50, 50, 50),
-    "sidewalk": (255, 255, 0)
+    "sidewalk": (255, 255, 0),
+    "car_wait": (255, 102, 102),
+    "pedes_wait": (0, 153, 0)
 }
 
 def set_region_file(file_path):

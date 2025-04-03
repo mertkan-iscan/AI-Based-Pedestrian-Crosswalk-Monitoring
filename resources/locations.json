@@ -12,6 +12,6 @@
     {
         "name": "konya video",
         "video_path": "D:/CSE_492_project/konya_live_videos/pedestrian_cross_1_1.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_720c4381ada64028935bc89643d70c98.json"
+        "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json"
     }
 ]
