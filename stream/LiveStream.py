@@ -9,15 +9,13 @@ from PyQt5 import QtCore
 
 from utils.ConfigManager import ConfigManager
 from region import RegionEditor
-
 from detection.DetectedObject import DetectedObject
 from detection.Inference import run_inference
-
 from detection.Tracker import DeepSortTracker
 from detection.Inference import calculate_foot_location
-
 from detection.PathUpdater import task_queue
 from stream.VideoFrameReader import VideoFrameReader
+
 
 config_manager = ConfigManager()
 infer_cfg = config_manager.get_inference_config()
@@ -61,6 +59,23 @@ def get_single_frame(stream_url):
         print("Error capturing frame:", e)
 
     return None
+
+
+def get_single_frame_file(video_file_path):
+
+    cap = cv2.VideoCapture(video_file_path)
+    if not cap.isOpened():
+        print(f"Error: Could not open video file: {video_file_path}")
+        return None
+
+    ret, frame = cap.read()
+    cap.release()
+
+    if not ret:
+        print(f"Error: Could not read a frame from: {video_file_path}")
+        return None
+
+    return frame
 
 
 def compute_frame_timing(frame_pts, base_pts, video_stream, start_time):

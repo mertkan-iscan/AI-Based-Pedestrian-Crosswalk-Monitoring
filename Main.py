@@ -1,7 +1,7 @@
 import sys
 import threading
 from PyQt5 import QtWidgets
-from gui.Gui import MainWindow
+from gui.MainWindow import MainWindow
 from detection.PathUpdater import dynamic_task_processor, task_queue
 from database.DBManager import DBManager
 import qdarkstyle
