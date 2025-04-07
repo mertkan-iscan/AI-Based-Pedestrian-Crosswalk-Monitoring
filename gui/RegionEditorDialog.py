@@ -36,56 +36,42 @@ class RegionEditorDialog(QtWidgets.QDialog):
         self.showMaximized()
 
     def initUI(self):
-        """Create a more intuitive UI by grouping region type controls and polygon actions."""
-
-        # Main horizontal layout: left side for image, right side for controls
         main_layout = QtWidgets.QHBoxLayout(self)
 
         left_layout = QtWidgets.QVBoxLayout()
-
         self.image_label = ClickableLabel()
         self.image_label.setAlignment(QtCore.Qt.AlignCenter)
         self.image_label.setMinimumSize(400, 300)
         self.image_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.image_label.clicked.connect(self.add_point)
-
         left_layout.addWidget(self.image_label)
-        main_layout.addLayout(left_layout, stretch=3)  # Give more space to the image
+
+        main_layout.addLayout(left_layout, stretch=4)  # More space to the image side
 
         right_layout = QtWidgets.QVBoxLayout()
 
-        # --- Group Box: Region Type Selection ---
+        # Region Type Selection in 2-column, 3-row grid layout
         region_type_group = QtWidgets.QGroupBox("Select Region Type")
-        region_type_layout = QtWidgets.QVBoxLayout()
+        region_type_layout = QtWidgets.QGridLayout()
 
-        self.blackout_btn = QtWidgets.QPushButton("Detection Blackout")
-        self.blackout_btn.clicked.connect(lambda: self.set_region_type("detection_blackout"))
-        region_type_layout.addWidget(self.blackout_btn)
+        btn_data = [
+            ("Detection Blackout", "detection_blackout"),
+            ("Crosswalk", "crosswalk"),
+            ("Road", "road"),
+            ("Sidewalk", "sidewalk"),
+            ("Car Wait", "car_wait"),
+            ("Pedestrian Wait", "pedes_wait")
+        ]
 
-        self.crosswalk_btn = QtWidgets.QPushButton("Crosswalk")
-        self.crosswalk_btn.clicked.connect(lambda: self.set_region_type("crosswalk"))
-        region_type_layout.addWidget(self.crosswalk_btn)
-
-        self.road_btn = QtWidgets.QPushButton("Road")
-        self.road_btn.clicked.connect(lambda: self.set_region_type("road"))
-        region_type_layout.addWidget(self.road_btn)
-
-        self.sidewalk_btn = QtWidgets.QPushButton("Sidewalk")
-        self.sidewalk_btn.clicked.connect(lambda: self.set_region_type("sidewalk"))
-        region_type_layout.addWidget(self.sidewalk_btn)
-
-        self.car_wait_btn = QtWidgets.QPushButton("Car Wait")
-        self.car_wait_btn.clicked.connect(lambda: self.set_region_type("car_wait"))
-        region_type_layout.addWidget(self.car_wait_btn)
-
-        self.pedes_wait_btn = QtWidgets.QPushButton("Pedestrian Wait")
-        self.pedes_wait_btn.clicked.connect(lambda: self.set_region_type("pedes_wait"))
-        region_type_layout.addWidget(self.pedes_wait_btn)
+        for i, (text, region_type) in enumerate(btn_data):
+            btn = QtWidgets.QPushButton(text)
+            btn.clicked.connect(lambda _, rt=region_type: self.set_region_type(rt))
+            region_type_layout.addWidget(btn, i // 2, i % 2)
 
         region_type_group.setLayout(region_type_layout)
         right_layout.addWidget(region_type_group)
 
-        # --- Group Box: Polygon Editing Actions ---
+        # Polygon Editing Actions
         polygon_group = QtWidgets.QGroupBox("Polygon Editing")
         polygon_layout = QtWidgets.QVBoxLayout()
 
@@ -108,15 +94,20 @@ class RegionEditorDialog(QtWidgets.QDialog):
         polygon_group.setLayout(polygon_layout)
         right_layout.addWidget(polygon_group)
 
-        # --- Exit / Close Button at the bottom ---
+        # Exit button at the bottom
         exit_btn = QtWidgets.QPushButton("Exit Editing")
         exit_btn.clicked.connect(self.accept)
         right_layout.addWidget(exit_btn)
 
-        # Add stretch so everything stays nicely at the top
+        # Align everything neatly at the top
         right_layout.addStretch()
 
-        main_layout.addLayout(right_layout, stretch=1)
+        # Make right side smaller (fixed width recommended)
+        right_widget = QtWidgets.QWidget()
+        right_widget.setLayout(right_layout)
+        right_widget.setFixedWidth(250)  # Adjust the width as desired
+
+        main_layout.addWidget(right_widget, stretch=0)
 
     def update_display(self):
         img = self.frozen_frame.copy()

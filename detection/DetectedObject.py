@@ -5,6 +5,7 @@ class DetectedObject:
     def __init__(self,
                  object_id,
                  object_type,
+                 bbox,
                  centroid_coordinate,
                  foot_coordinate,
                  region):
@@ -12,11 +13,15 @@ class DetectedObject:
         self.id = object_id
         self.object_type = object_type
 
+        self.bbox = bbox
         self.centroid_coordinate = centroid_coordinate
         #only person class has foot coordinates
         self.foot_coordinate = foot_coordinate if object_type == "person" else None
 
         self.region = region
+
+    def update_bbox(self, new_bbox):
+        self.bbox = new_bbox
 
     def update_foot(self, new_foot_coordinate):
         if self.object_type == "person":

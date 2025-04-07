@@ -21,15 +21,27 @@ def add_location(location):
     print(f"Added location: {location['name']}")
 
 def delete_location(location):
-
     locations = load_locations()
-
     updated_locations = [loc for loc in locations if loc != location]
     with open(CONFIG_FILE, "w") as f:
         json.dump(updated_locations, f, indent=4)
     print(f"Deleted location: {location['name']}")
-
     polygons_file = location.get("polygons_file")
     if polygons_file and os.path.exists(polygons_file):
         os.remove(polygons_file)
         print(f"Deleted polygons file: {polygons_file}")
+
+def update_location(old_location, new_location):
+    locations = load_locations()
+    updated = False
+    for i, loc in enumerate(locations):
+        if loc == old_location:
+            locations[i] = new_location
+            updated = True
+            break
+    if updated:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(locations, f, indent=4)
+        print(f"Updated location: {new_location['name']}")
+    else:
+        print("Location not found for update.")

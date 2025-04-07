@@ -23,8 +23,6 @@ def process_task(task, db_manager):
                 global_paths[object_id] = []
             global_paths[object_id].append(data)
 
-            #print(f"Path updated {object_id}")
-
     elif task_type == 'disappear':
         with global_paths_lock:
             final_path = global_paths.pop(object_id, [])

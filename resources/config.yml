@@ -1,0 +1,11 @@
+database:
+  db_file: resources/object_paths.db
+  record_paths: False
+inference:
+  max_frame_gap: 5.0
+  max_latency: 0.5
+  skip_frames: 2
+yolo:
+  device: cuda
+  version: yolov5xu.pt
+  imgsz: 640

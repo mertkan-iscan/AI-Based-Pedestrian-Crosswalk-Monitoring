@@ -49,6 +49,7 @@ class VideoFrameReader(QtCore.QObject):
         delay_ms = max(0, int((target_time - now) * 1000))
         self.timer.start(delay_ms)
 
+
     def stop(self):
         self.timer.stop()
         self.cap.release()

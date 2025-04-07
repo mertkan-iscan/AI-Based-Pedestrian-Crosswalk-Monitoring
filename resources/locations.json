@@ -1,17 +1,22 @@
 [
     {
-        "name": "konya_4",
+        "name": "mevlana live",
         "stream_url": "https://content.tvkur.com/l/c77i7s384cnrb6mlji90/master.m3u8",
         "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json"
     },
     {
-        "name": "konya_2",
+        "name": "zafer live",
         "stream_url": "https://content.tvkur.com/l/c77ibcnbb2nj4i0fr8cg/master.m3u8",
         "polygons_file": "resources\\location_regions\\polygons_a45a793188794bcfb1e87a103addbb02.json"
     },
     {
-        "name": "konya video",
+        "name": "mevlana video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/pedestrian_cross_1_1.mp4",
         "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json"
+    },
+    {
+        "name": "zafer video 1",
+        "video_path": "D:/CSE_492_project/konya_live_videos/pedestrian_cross_2_1.mp4",
+        "polygons_file": "resources\\location_regions\\polygons_b5c808979068496f9df36926bd8368b8.json"
     }
 ]
