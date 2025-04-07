@@ -1,3 +1,5 @@
+import time
+
 import cv2
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -32,6 +34,8 @@ def run_inference(img):
         cls = int(class_ids[i])
         conf = float(confidences[i])
         detections.append((int(x1), int(y1), int(x2), int(y2), cls, conf))
+
+    #time.sleep(5)
 
     return detections
 

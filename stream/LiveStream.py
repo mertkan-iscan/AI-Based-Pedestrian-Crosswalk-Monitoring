@@ -13,7 +13,7 @@ from detection.DetectedObject import DetectedObject
 from detection.Inference import run_inference
 from detection.Tracker import DeepSortTracker
 from detection.Inference import calculate_foot_location
-from detection.PathUpdater import task_queue
+from utils.PathUpdater import task_queue
 from stream.VideoFrameReader import VideoFrameReader
 
 # Load configuration
@@ -95,7 +95,7 @@ class VideoStreamProcessor:
         self.max_latency = infer_cfg.get("max_latency", 0.5)
         self.max_frame_gap = infer_cfg.get("max_frame_gap", 5.0)
         self.persistent_objects = {}
-        self.tracker = DeepSortTracker(maxDisappeared=40)
+        self.tracker = DeepSortTracker(max_disappeared=40)
         self.frame_count = 0
         self.prev_detections = []
 
@@ -119,24 +119,6 @@ class VideoStreamProcessor:
         if gap > max_frame_gap:
             print(f"WARNING: No frames received for {gap:.1f}s (exceeds {max_frame_gap}s). Slow or stalled stream?")
         return gap
-
-    @staticmethod
-    def draw_detections(img, detections):
-        # Optimized color mapping.
-        color_map = {
-            0: (0, 255, 0),
-            2: (255, 0, 0),
-            3: (255, 0, 255)
-        }
-        default_color = (0, 255, 255)
-
-        for det in detections:
-            x1, y1, x2, y2, cls, conf = det
-            label = f"{cls} {conf:.2f}"
-            color = color_map.get(cls, default_color)
-            cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-        return img
 
     @staticmethod
     def draw_latency_info(img, delay):
@@ -165,7 +147,7 @@ class VideoStreamProcessor:
         return detections
 
     def update_tracker_objects(self, detections):
-        rects_for_tracker = [det[:5] for det in detections]
+        rects_for_tracker = detections
         objects = self.tracker.update(rects_for_tracker)
         detected_objects_list = []
 

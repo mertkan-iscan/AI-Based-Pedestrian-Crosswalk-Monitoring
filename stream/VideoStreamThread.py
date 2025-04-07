@@ -1,36 +1,41 @@
 import cv2
 from PyQt5 import QtCore, QtGui
-from stream.LiveStream import VideoStreamProcessor
+import queue
+import time
 
 class VideoStreamThread(QtCore.QThread):
     frame_ready = QtCore.pyqtSignal(QtGui.QImage)
-    objects_ready = QtCore.pyqtSignal(list)
-    latency_info = QtCore.pyqtSignal(float, float)  # New signal: (frame timing latency, inference latency)
     error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(self, stream_url, polygons_file, parent=None):
+    def __init__(self, stream_url, parent=None, frame_queue=None):
         super(VideoStreamThread, self).__init__(parent)
         self.stream_url = stream_url
-        self.polygons_file = polygons_file
         self._is_running = True
+        self.frame_queue = frame_queue if frame_queue is not None else queue.Queue(maxsize=10)
 
     def run(self):
         try:
-            processor = VideoStreamProcessor(self.stream_url, self.polygons_file)
-            for img, detected_objects, frame_latency, inference_latency in processor.stream_generator():
-                if not self._is_running:
+            cap = cv2.VideoCapture(self.stream_url)
+            if not cap.isOpened():
+                raise Exception("Cannot open video stream")
+            while self._is_running:
+                ret, frame = cap.read()
+                if not ret:
                     break
-
-                # Convert BGR to RGB for Qt.
-                rgb_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                height, width, channel = rgb_image.shape
-                bytes_per_line = 3 * width
+                capture_time = time.time()  # record the frame capture time
+                # Convert frame for display
+                rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                height, width, channels = rgb_image.shape
+                bytes_per_line = channels * width
                 q_img = QtGui.QImage(rgb_image.data, width, height, bytes_per_line,
                                      QtGui.QImage.Format_RGB888).copy()
-
                 self.frame_ready.emit(q_img)
-                self.objects_ready.emit(detected_objects)
-                self.latency_info.emit(frame_latency, inference_latency)
+                # Push (frame, capture_time) to the shared queue if not full.
+                if not self.frame_queue.full():
+                    self.frame_queue.put((frame, capture_time))
+                # Sleep a bit to roughly control frame rate.
+                time.sleep(0.03)
+            cap.release()
         except Exception as e:
             self.error_signal.emit(str(e))
 
