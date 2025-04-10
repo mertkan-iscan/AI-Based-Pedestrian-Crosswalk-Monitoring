@@ -25,16 +25,18 @@ class DetectionThread(QtCore.QThread):
     def run(self):
         while self._is_running:
             try:
-                # Get a tuple: (frame, capture_time)
                 frame_tuple = self.frame_queue.get(timeout=0.05)
             except queue.Empty:
                 continue
+
             frame, capture_time = frame_tuple
+
             try:
                 detections = run_inference(frame)
                 rects_for_tracker = detections
                 objects_dict = self.tracker.update(rects_for_tracker)
                 detected_objects_list = []
+
                 for objectID, (centroid, bbox) in objects_dict.items():
                     if len(bbox) < 5:
                         continue
@@ -46,8 +48,10 @@ class DetectionThread(QtCore.QThread):
                     region = region[0] if region else "unknown"
                     detected_obj = DetectedObject(objectID, object_type, bbox[:4], centroid, foot, region)
                     detected_objects_list.append(detected_obj)
+
                 # Emit detections along with the capture time of the frame used.
                 self.detections_ready.emit(detected_objects_list, capture_time)
+
             except Exception as e:
                 self.error_signal.emit(str(e))
 
