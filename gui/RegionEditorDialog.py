@@ -46,6 +46,11 @@ class RegionEditorDialog(QtWidgets.QDialog):
         self.image_label.clicked.connect(self.add_point)
         left_layout.addWidget(self.image_label)
 
+        self.region_type_label = QtWidgets.QLabel()
+        self.region_type_label.setText(f"Current Region Type: {self.current_region_type}")
+        self.region_type_label.setAlignment(QtCore.Qt.AlignCenter)
+        left_layout.addWidget(self.region_type_label)
+
         main_layout.addLayout(left_layout, stretch=4)  # More space to the image side
 
         right_layout = QtWidgets.QVBoxLayout()
@@ -118,9 +123,6 @@ class RegionEditorDialog(QtWidgets.QDialog):
         for pt in self.current_points:
             cv2.circle(img, pt, 3, (0, 0, 255), -1)
 
-        cv2.putText(img, f"Current Region Type: {self.current_region_type}",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         height, width, channel = rgb.shape
         bytes_per_line = 3 * width
@@ -156,6 +158,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
 
     def set_region_type(self, rtype):
         self.current_region_type = rtype
+        self.region_type_label.setText(f"Current Region Type: {self.current_region_type}")
         self.update_display()
 
     def finalize_polygon(self):

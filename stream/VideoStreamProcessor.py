@@ -1,12 +1,10 @@
 import os
-import av
-import streamlink
 import cv2
 import time
-from contextlib import contextmanager
 
 from PyQt5 import QtCore
 
+from stream.StreamContainer import StreamContainer
 from utils.ConfigManager import ConfigManager
 from region import RegionEditor
 from detection.DetectedObject import DetectedObject
@@ -16,74 +14,9 @@ from detection.Inference import calculate_foot_location
 from utils.PathUpdater import task_queue
 from stream.VideoFrameReader import VideoFrameReader
 
-# Load configuration
+
 config_manager = ConfigManager()
 infer_cfg = config_manager.get_inference_config()
-
-
-class StreamContainer:
-
-    @staticmethod
-    def get_container(url):
-        streams = streamlink.streams(url)
-        if "best" not in streams:
-            raise Exception("No suitable stream found.")
-        stream_obj = streams["best"]
-        raw_stream = stream_obj.open()
-
-        class StreamWrapper:
-            def read(self, size=-1):
-                return raw_stream.read(size)
-
-            def readable(self):
-                return True
-
-        wrapped = StreamWrapper()
-        container = av.open(wrapped)
-        return container
-
-    @staticmethod
-    @contextmanager
-    def get_container_context(url):
-        container = StreamContainer.get_container(url)
-        try:
-            yield container
-        finally:
-            container.close()
-
-
-class FrameExtractor:
-
-    @staticmethod
-    def frame_generator(container):
-        for frame in container.decode(video=0):
-            yield frame.to_ndarray(format='bgr24')
-
-    @staticmethod
-    def get_single_frame(stream_url):
-        try:
-            with StreamContainer.get_container_context(stream_url) as container:
-                for frame in container.decode(video=0):
-                    return frame.to_ndarray(format='bgr24')
-        except Exception as e:
-            print("Error capturing frame:", e)
-        return None
-
-    @staticmethod
-    def get_single_frame_file(video_file_path):
-        cap = cv2.VideoCapture(video_file_path)
-        if not cap.isOpened():
-            print(f"Error: Could not open video file: {video_file_path}")
-            return None
-
-        ret, frame = cap.read()
-        cap.release()
-
-        if not ret:
-            print(f"Error: Could not read a frame from: {video_file_path}")
-            return None
-
-        return frame
 
 
 class VideoStreamProcessor:

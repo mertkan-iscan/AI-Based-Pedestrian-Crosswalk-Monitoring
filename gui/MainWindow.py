@@ -4,6 +4,7 @@ from gui.AddVideoRecordDialog import AddVideoRecordDialog
 from gui.RegionEditorDialog import RegionEditorDialog
 from gui.VideoPlayerWindow import VideoPlayerWindow
 from region import RegionEditor, LocationManager
+from stream.FrameExtractor import FrameExtractor
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -101,10 +102,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Use FrameExtractor for video file frame retrieval.
         if "video_path" in self.selected_location and self.selected_location["video_path"]:
-            from stream.LiveStream import FrameExtractor
             frame = FrameExtractor.get_single_frame_file(self.selected_location["video_path"])
         else:
-            from stream.LiveStream import FrameExtractor
             frame = FrameExtractor.get_single_frame(self.selected_location["stream_url"])
 
         if frame is None:

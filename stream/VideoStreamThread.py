@@ -4,7 +4,9 @@ import time
 from PyQt5 import QtCore, QtGui
 import queue
 
-from stream.LiveStream import StreamContainer, VideoStreamProcessor
+from stream.StreamContainer import StreamContainer
+from stream.VideoStreamProcessor import VideoStreamProcessor
+
 
 class VideoStreamThread(QtCore.QThread):
 
