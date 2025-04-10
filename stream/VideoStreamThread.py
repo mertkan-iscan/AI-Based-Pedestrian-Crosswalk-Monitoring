@@ -29,7 +29,6 @@ class VideoStreamThread(QtCore.QThread):
             loop.exec_()
 
     def convert_frame_to_qimage(self, bgr_frame):
-        """BGR formatındaki görüntüyü QImage (RGB) formatına dönüştürür."""
         rgb_image = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
         height, width, channels = rgb_image.shape
         bytes_per_line = channels * width
@@ -68,7 +67,6 @@ class VideoStreamThread(QtCore.QThread):
             base_pts = None
             start_time = time.time()
             video_stream = container.streams.video[0]
-            last_frame_time = time.time()
 
             for frame in container.decode(video=0):
                 if not self._is_running:
@@ -84,14 +82,13 @@ class VideoStreamThread(QtCore.QThread):
                 last_frame_time = time.time()
 
                 self.wait_until(display_time)
-                capture_time = time.time()
 
                 img = frame.to_ndarray(format='bgr24')
                 q_img = self.convert_frame_to_qimage(img)
                 self.frame_ready.emit(q_img)
 
                 if not self.frame_queue.full():
-                    self.frame_queue.put((img, capture_time))
+                    self.frame_queue.put((img, display_time))
 
     def run(self):
         try:
@@ -100,7 +97,7 @@ class VideoStreamThread(QtCore.QThread):
             else:
                 self._process_live_stream()
         except Exception as e:
-            self.error_signal.emit(str(e))
+            self.error_signal.emit(f"Error: {repr(e)}")
 
     def stop(self):
         self._is_running = False

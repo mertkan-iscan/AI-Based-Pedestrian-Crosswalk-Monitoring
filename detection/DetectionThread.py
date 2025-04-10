@@ -38,6 +38,7 @@ class DetectionThread(QtCore.QThread):
                 detected_objects_list = []
 
                 for objectID, (centroid, bbox) in objects_dict.items():
+
                     if len(bbox) < 5:
                         continue
                     object_type = DetectedObject.CLASS_NAMES.get(bbox[4], "unknown")
@@ -53,7 +54,7 @@ class DetectionThread(QtCore.QThread):
                 self.detections_ready.emit(detected_objects_list, capture_time)
 
             except Exception as e:
-                self.error_signal.emit(str(e))
+                self.error_signal.emit(f"Error: {repr(e)}")
 
     def stop(self):
         self._is_running = False
