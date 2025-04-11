@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as T
+from concurrent.futures import ThreadPoolExecutor
 
 # -------------------------
 # CNN Feature Extractor
@@ -32,7 +33,6 @@ class CNNFeatureExtractor:
         Extract appearance features from the given frame and bounding box.
         bbox: tuple (x1, y1, x2, y2)
         """
-
         x1, y1, x2, y2 = bbox[:4]
         h, w, _ = frame.shape
         x1 = max(0, min(x1, w - 1))
@@ -40,16 +40,12 @@ class CNNFeatureExtractor:
         y1 = max(0, min(y1, h - 1))
         y2 = max(0, min(y2, h - 1))
         patch = frame[y1:y2, x1:x2]
-
         if patch.size == 0:
             return np.zeros(512)
-
         patch = cv2.cvtColor(patch, cv2.COLOR_BGR2RGB)
         patch_tensor = self.transform(patch).unsqueeze(0).to(self.device)
-
         with torch.no_grad():
             features = self.model(patch_tensor)
-
         features = features.cpu().numpy().flatten()
         return features
 
@@ -63,13 +59,11 @@ class CNNFeatureExtractor:
         h, w, _ = frame.shape
         for bbox in bboxes:
             x1, y1, x2, y2 = bbox[:4]
-            # Ensure bounding box is within frame bounds.
             x1 = max(0, min(x1, w - 1))
             x2 = max(0, min(x2, w - 1))
             y1 = max(0, min(y1, h - 1))
             y2 = max(0, min(y2, h - 1))
             patch = frame[y1:y2, x1:x2]
-            # If patch is empty, use a dummy black patch.
             if patch.size == 0:
                 patch = np.zeros((224, 224, 3), dtype=np.uint8)
             patch = cv2.cvtColor(patch, cv2.COLOR_BGR2RGB)
@@ -77,7 +71,7 @@ class CNNFeatureExtractor:
             patches.append(image)
         if len(patches) == 0:
             return np.zeros((0, 1280))  # Assuming MobileNetV2 outputs 1280-dim features.
-        # Stack patches to create a batch.
+        # Stack patches into a batch.
         batch_tensor = torch.stack(patches, dim=0).to(self.device)
         with torch.no_grad():
             batch_features = self.model(batch_tensor)
@@ -149,8 +143,9 @@ class DeepSortTracker:
         self.max_distance = max_distance  # Threshold for association.
         self.appearance_weight = appearance_weight  # Weight for appearance cost.
         self.motion_weight = motion_weight  # Weight for motion cost.
-        # Initialize CNN feature extractor.
         self.feature_extractor = CNNFeatureExtractor(device=device)
+        # Initialize a thread pool to allow concurrent feature extraction.
+        self.executor = ThreadPoolExecutor(max_workers=2)
 
     def _compute_cost(self, detections):
         """
@@ -188,7 +183,7 @@ class DeepSortTracker:
         features: optional list of precomputed appearance features.
         Returns a dictionary mapping track_id -> (centroid, bbox)
         """
-        # If no detections, increment missed update count and remove old tracks.
+        # If no detections, update tracks’ missed counts.
         if len(rects) == 0:
             for track in self.tracks:
                 track.time_since_update += 1
@@ -196,7 +191,6 @@ class DeepSortTracker:
             return {track.track_id: (track.centroid, track.bbox) for track in self.tracks}
 
         detections = []
-        # If no external features are provided and a frame is available, batch process all detections.
         if features is None and frame is not None:
             bboxes_list = []
             centroids = []
@@ -212,8 +206,9 @@ class DeepSortTracker:
                 cY = int((y1 + y2) / 2.0)
                 centroids.append((cX, cY))
                 bboxes_list.append((x1, y1, x2, y2))
-            # Batch extract features for all detections.
-            batch_features = self.feature_extractor.extract_features_batch(frame, bboxes_list)
+            # Submit the batch extraction job asynchronously.
+            future = self.executor.submit(self.feature_extractor.extract_features_batch, frame, bboxes_list)
+            batch_features = future.result()
             for i, rect in enumerate(rects):
                 if len(rect) == 6:
                     x1, y1, x2, y2, cls, conf = rect
@@ -221,7 +216,7 @@ class DeepSortTracker:
                     x1, y1, x2, y2, cls = rect
                 detections.append((centroids[i], (x1, y1, x2, y2, cls), batch_features[i]))
         else:
-            # Use sequential extraction (or provided features).
+            # Fallback to sequential processing (or using provided features).
             for i, rect in enumerate(rects):
                 if len(rect) == 6:
                     x1, y1, x2, y2, cls, conf = rect
@@ -241,7 +236,7 @@ class DeepSortTracker:
                     detection_feature = None
                 detections.append((centroid, (x1, y1, x2, y2, cls), detection_feature))
 
-        # Compute assignment cost.
+        # Compute cost matrix and assign detections to tracks.
         cost_matrix = self._compute_cost(detections)
         if cost_matrix.size > 0:
             rows, cols = linear_sum_assignment(cost_matrix)
@@ -252,7 +247,6 @@ class DeepSortTracker:
         assigned_detections = set()
 
         for row, col in zip(rows, cols):
-            # Only associate if the cost is below the threshold.
             if cost_matrix[row, col] > self.max_distance:
                 continue
             self.tracks[row].update(detections[col][1], detections[col][0],
@@ -260,15 +254,12 @@ class DeepSortTracker:
             assigned_tracks.add(row)
             assigned_detections.add(col)
 
-        # Increment time since update for unassigned tracks.
         for i, track in enumerate(self.tracks):
             if i not in assigned_tracks:
                 track.time_since_update += 1
 
-        # Remove tracks that haven't been updated.
         self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
 
-        # Create new tracks for unassigned detections.
         for j in range(len(detections)):
             if j not in assigned_detections:
                 new_track = Track(self.next_track_id, detections[j][1], detections[j][0],
@@ -276,7 +267,5 @@ class DeepSortTracker:
                 self.tracks.append(new_track)
                 self.next_track_id += 1
 
-        result = {}
-        for track in self.tracks:
-            result[track.track_id] = (track.centroid, track.bbox)
+        result = {track.track_id: (track.centroid, track.bbox) for track in self.tracks}
         return result
