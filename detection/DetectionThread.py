@@ -34,13 +34,14 @@ class DetectionThread(QtCore.QThread):
             try:
                 detections = run_inference(frame)
                 rects_for_tracker = detections
-                objects_dict = self.tracker.update(rects_for_tracker)
+                objects_dict = self.tracker.update(rects_for_tracker, frame=frame)
                 detected_objects_list = []
 
                 for objectID, (centroid, bbox) in objects_dict.items():
 
                     if len(bbox) < 5:
                         continue
+
                     object_type = DetectedObject.CLASS_NAMES.get(bbox[4], "unknown")
                     foot = calculate_foot_location(bbox) if (object_type == "person" and bbox[4] == 0) else None
                     location = foot if foot is not None else centroid
