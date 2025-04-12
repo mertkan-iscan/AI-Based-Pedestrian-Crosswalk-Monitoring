@@ -1,3 +1,5 @@
+import cv2
+import numpy as np
 from PyQt5 import QtCore
 import time
 import queue
@@ -20,9 +22,30 @@ class DetectionThread(QtCore.QThread):
         self.frame_queue = frame_queue
         self._is_running = True
         self.tracker = DeepSortTracker(max_disappeared=40)
+
         if RegionEditor.region_polygons is None or RegionEditor.region_json_file != self.polygons_file:
             RegionEditor.region_json_file = self.polygons_file
             RegionEditor.load_polygons()
+
+    def apply_detection_blackout(self, frame):
+        """
+        Returns a copy of the frame where all regions defined with type
+        'detection_blackout' in RegionEditor.region_polygons are filled with 0s.
+        """
+        # Copy the original frame.
+        masked_frame = frame.copy()
+
+        # Ensure that polygons are loaded.
+        if RegionEditor.region_polygons is None:
+            return masked_frame
+
+        # Iterate over each polygon.
+        for poly in RegionEditor.region_polygons:
+            if poly.get("type") == "detection_blackout":
+                pts = np.array(poly["points"], dtype=np.int32)
+                # Fill the polygon with black (all 0's).
+                cv2.fillPoly(masked_frame, [pts], (0, 0, 0))
+        return masked_frame
 
     def run(self):
         while self._is_running:
@@ -33,14 +56,18 @@ class DetectionThread(QtCore.QThread):
 
             frame, capture_time = frame_tuple
 
+            # Apply blackout masking based on polygon data.
+            # This fills with zeros for any polygon of type "detection_blackout".
+            masked_frame = self.apply_detection_blackout(frame)
+
             try:
-                detections = run_inference(frame)
+                # Run YOLO detection on the masked frame.
+                detections = run_inference(masked_frame)
                 rects_for_tracker = detections
-                objects_dict = self.tracker.update(rects_for_tracker, frame=frame)
+                objects_dict = self.tracker.update(rects_for_tracker, frame=masked_frame)
                 detected_objects_list = []
 
                 for objectID, (centroid, bbox) in objects_dict.items():
-
                     if len(bbox) < 5:
                         continue
 
@@ -53,7 +80,6 @@ class DetectionThread(QtCore.QThread):
                     detected_obj = DetectedObject(objectID, object_type, bbox[:4], centroid, foot, region)
                     detected_objects_list.append(detected_obj)
 
-                # Emit detections along with the capture time of the frame used.
                 self.detections_ready.emit(detected_objects_list, capture_time)
 
             except Exception as e:
