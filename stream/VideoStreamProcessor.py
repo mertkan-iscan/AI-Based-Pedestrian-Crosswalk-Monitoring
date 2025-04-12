@@ -9,7 +9,7 @@ from utils.ConfigManager import ConfigManager
 from region import RegionEditor
 from detection.DetectedObject import DetectedObject
 from detection.Inference import run_inference
-from detection.Tracker import DeepSortTracker
+
 from detection.Inference import calculate_foot_location
 from utils.PathUpdater import task_queue
 from stream.VideoFrameReader import VideoFrameReader

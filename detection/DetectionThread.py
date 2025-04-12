@@ -1,8 +1,10 @@
 from PyQt5 import QtCore
 import time
 import queue
+
+from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from detection.Inference import run_inference, calculate_foot_location
-from detection.Tracker import DeepSortTracker
+
 from region import RegionEditor
 from detection.DetectedObject import DetectedObject
 from utils.PathUpdater import task_queue

@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtWidgets
 
 class EditLocationDialog(QtWidgets.QDialog):
     def __init__(self, location, parent=None):
