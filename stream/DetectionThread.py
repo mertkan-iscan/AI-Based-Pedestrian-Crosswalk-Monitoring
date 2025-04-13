@@ -9,10 +9,11 @@ from detection.Inference import run_inference, calculate_foot_location
 
 from region import RegionEditor
 from detection.DetectedObject import DetectedObject
-from utils.PathUpdater import task_queue
+from utils.ConfigManager import ConfigManager
+
 
 class DetectionThread(QtCore.QThread):
-    # Now emits detections along with the capture time of the frame used for inference.
+
     detections_ready = QtCore.pyqtSignal(list, float)
     error_signal = QtCore.pyqtSignal(str)
 
@@ -21,7 +22,23 @@ class DetectionThread(QtCore.QThread):
         self.polygons_file = polygons_file
         self.frame_queue = frame_queue
         self._is_running = True
-        self.tracker = DeepSortTracker(max_disappeared=40)
+
+        config_manager = ConfigManager()
+        deepsort_config = config_manager.get_deepsort_config()
+
+        max_disappeared = deepsort_config.get("max_disappeared", 40)
+        max_distance = deepsort_config.get("max_distance", 100)
+        device = deepsort_config.get("device", "cuda")
+        appearance_weight = deepsort_config.get("appearance_weight", 0.5)
+        motion_weight = deepsort_config.get("motion_weight", 0.5)
+
+        self.tracker = DeepSortTracker(
+            max_disappeared=max_disappeared,
+            max_distance=max_distance,
+            device=device,
+            appearance_weight=appearance_weight,
+            motion_weight=motion_weight
+        )
 
         if RegionEditor.region_polygons is None or RegionEditor.region_json_file != self.polygons_file:
             RegionEditor.region_json_file = self.polygons_file
@@ -57,7 +74,6 @@ class DetectionThread(QtCore.QThread):
             frame, capture_time = frame_tuple
 
             # Apply blackout masking based on polygon data.
-            # This fills with zeros for any polygon of type "detection_blackout".
             masked_frame = self.apply_detection_blackout(frame)
 
             try:
@@ -74,8 +90,8 @@ class DetectionThread(QtCore.QThread):
                     object_type = DetectedObject.CLASS_NAMES.get(bbox[4], "unknown")
                     foot = calculate_foot_location(bbox) if (object_type == "person" and bbox[4] == 0) else None
                     location = foot if foot is not None else centroid
-                    region = RegionEditor.get_polygons_for_point((int(location[0]), int(location[1])),
-                                                                 RegionEditor.region_polygons)
+                    region = RegionEditor.get_polygons_for_point(
+                        (int(location[0]), int(location[1])), RegionEditor.region_polygons)
                     region = region[0] if region else "unknown"
                     detected_obj = DetectedObject(objectID, object_type, bbox[:4], centroid, foot, region)
                     detected_objects_list.append(detected_obj)

@@ -25,6 +25,13 @@ class ConfigManager:
             "database": {
                 "record_paths": False,
                 "db_file": "resources/object_paths.db"
+            },
+            "deepsort": {  # New section for DeepSort variables
+                "max_disappeared": 50,
+                "max_distance": 100,
+                "device": "cuda",
+                "appearance_weight": 0.5,
+                "motion_weight": 0.5
             }
         }
         with open(self.config_path, 'w') as file:
@@ -42,6 +49,9 @@ class ConfigManager:
 
     def get_database_config(self):
         return self.config.get("database", {})
+
+    def get_deepsort_config(self):
+        return self.config.get("deepsort", {})
 
     def update_config(self, section, parameter, value):
         if section in self.config and parameter in self.config[section]:

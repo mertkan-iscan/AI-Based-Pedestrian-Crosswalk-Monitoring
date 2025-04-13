@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from detection.OverlayWidget import OverlayWidget
+from gui.OverlayWidget import OverlayWidget
 from stream.VideoStreamThread import VideoStreamThread
-from detection.DetectionThread import DetectionThread
+from stream.DetectionThread import DetectionThread
 import queue
 import time
 

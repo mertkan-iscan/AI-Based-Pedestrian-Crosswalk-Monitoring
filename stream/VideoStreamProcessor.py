@@ -4,6 +4,7 @@ import time
 
 from PyQt5 import QtCore
 
+from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from stream.StreamContainer import StreamContainer
 from utils.ConfigManager import ConfigManager
 from region import RegionEditor
