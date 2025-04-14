@@ -7,7 +7,7 @@ inference:
   skip_frames: 2
 yolo:
   device: cuda
-  version: yolov8x.pt
+  version: yolov5xu.pt
   imgsz: 640
 deepsort:
   max_disappeared: 50

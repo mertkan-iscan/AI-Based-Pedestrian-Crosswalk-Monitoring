@@ -18,5 +18,15 @@
         "name": "zafer video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/pedestrian_cross_2_1.mp4",
         "polygons_file": "resources\\location_regions\\polygons_a45a793188794bcfb1e87a103addbb02.json"
+    },
+    {
+        "name": "parallel live",
+        "stream_url": "https://content.tvkur.com/l/c77i6cfbb2nj4i0fr7s0/master.m3u8",
+        "polygons_file": "resources\\location_regions\\polygons_8569be15094c447495e9d3b0db2cfba0.json"
+    },
+    {
+        "name": "parallel video 1",
+        "video_path": "D:/CSE_492_project/konya_live_videos/sunny_afternoon_cropped.mp4",
+        "polygons_file": "resources\\location_regions\\polygons_52a90f0ae8cb40d88bb1c1030d7e7bbf.json"
     }
 ]
