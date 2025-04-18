@@ -5,7 +5,6 @@ from PyQt5 import QtCore
 
 class VideoFrameReader(QtCore.QObject):
 
-    # Emits (frame, target_time) for each frame
     frame_ready = QtCore.pyqtSignal(object, float)
     finished = QtCore.pyqtSignal()
 
@@ -17,10 +16,8 @@ class VideoFrameReader(QtCore.QObject):
         if not self.cap.isOpened():
             raise Exception("Cannot open video file: " + video_path)
 
-        # Read the timestamp (in seconds) of the first frame.
         self.first_timestamp = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-        # Record the system start time using a high-resolution clock.
         self.system_start = time.perf_counter()
         self.timer = QtCore.QTimer(self)
         self.timer.setSingleShot(True)
@@ -37,14 +34,11 @@ class VideoFrameReader(QtCore.QObject):
             self.finished.emit()
             return
 
-        # Get the current frame’s timestamp (in seconds)
         current_timestamp = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-        # Compute the target display time:
         target_time = self.system_start + (current_timestamp - self.first_timestamp)
         self.frame_ready.emit(frame, target_time)
 
-        # Schedule the next frame based on target_time.
         now = time.perf_counter()
         delay_ms = max(0, int((target_time - now) * 1000))
         self.timer.start(delay_ms)

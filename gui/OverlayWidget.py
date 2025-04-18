@@ -5,13 +5,7 @@ import numpy as np
 
 
 class OverlayWidget(QWidget):
-    """
-    Draws bounding boxes, tracker‑points (TP) and foot‑points (FP) on top of the
-    live video.
-    If an inverse homography is supplied with `set_inverse_homography`, tracker
-    points that are stored in *calibrated/world* space are first *uncalibrated*
-    (mapped back to pixel space) before being rendered.
-    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.detections = []                    # iterable of DetectedObject
@@ -21,7 +15,6 @@ class OverlayWidget(QWidget):
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
-    # ------------------------------------------------------------------ public
     def set_detections(self, detections, original_frame_size, scaled_pixmap_size):
         self.detections = detections
         self.original_frame_size = original_frame_size
@@ -29,12 +22,9 @@ class OverlayWidget(QWidget):
         self.update()
 
     def set_inverse_homography(self, H_inv):
-        """Supply a 3×3 matrix that maps *calibrated → pixel* coordinates."""
         self.H_inv = np.asarray(H_inv) if H_inv is not None else None
 
-    # ----------------------------------------------------------------- private
     def _to_pixel(self, pt):
-        """(x,y) calibrated → pixel using H_inv; falls back untouched."""
         if self.H_inv is None:
             return pt
         vec = np.array([pt[0], pt[1], 1.0], dtype=float)
@@ -43,12 +33,10 @@ class OverlayWidget(QWidget):
             return pt
         return (dst[0] / dst[2], dst[1] / dst[2])
 
-    # ------------------------------------------------------------- Qt paintEvent
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
-        painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
 
-        # compute scaling from raw frame → QLabel
         ow, oh = self.original_frame_size
         sw, sh = self.scaled_pixmap_size
         scale  = min(sw / ow, sh / oh)
@@ -56,8 +44,7 @@ class OverlayWidget(QWidget):
         off_y  = (self.height() - oh * scale) / 2
 
         for obj in self.detections:
-            # ---------- draw red bounding box ----------
-            pen_box = QtGui.QPen(QtGui.QColor(255, 0, 0), 2)
+            pen_box = QtGui.QPen(QtGui.QColor(0, 255, 255), 2)  # Cyan
             painter.setPen(pen_box)
             x1, y1, x2, y2 = obj.bbox
             rect = QtCore.QRectF(
@@ -67,26 +54,33 @@ class OverlayWidget(QWidget):
                 (y2 - y1) * scale
             )
             painter.drawRect(rect)
-            painter.drawText(rect.topLeft(), f"ID: {obj.id}")
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))  # White text for ID
 
-            # ---------- tracker point (TP) ----------
+            text_pos = rect.topLeft() + QtCore.QPointF(0, -6)
+            painter.drawText(text_pos, f"ID: {obj.id}")
+
+            # tracker point
             if obj.centroid_coordinate is not None:
-                cx, cy = self._to_pixel(obj.centroid_coordinate)  # UNCALIBRATE!
+                cx, cy = self._to_pixel(obj.centroid_coordinate)
                 sx, sy = off_x + cx * scale, off_y + cy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
-                painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 255), 2))
-                painter.setBrush(QtGui.QColor(0, 0, 255))
+                painter.setPen(QtGui.QPen(QtGui.QColor(0, 128, 255), 2))  # Light blue
+                painter.setBrush(QtGui.QColor(0, 128, 255))
                 painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
+                painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))  # White text
                 painter.drawText(QtCore.QPointF(sx + 6, sy), f"TP: {obj.id}")
-                painter.setPen(old_pen); painter.setBrush(old_brush)
+                painter.setPen(old_pen);
+                painter.setBrush(old_brush)
 
-            # ---------- foot point (FP) – already in pixel space ----------
+            # foot point
             if obj.foot_coordinate is not None:
                 fx, fy = obj.foot_coordinate
                 sx, sy = off_x + fx * scale, off_y + fy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
-                painter.setPen(QtGui.QPen(QtGui.QColor(0, 255, 0), 2))
-                painter.setBrush(QtGui.QColor(0, 255, 0))
+                painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 0), 2))  # Yellow
+                painter.setBrush(QtGui.QColor(255, 255, 0))
                 painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
+                painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0)))  # Black text inside yellow
                 painter.drawText(QtCore.QPointF(sx + 6, sy), f"FP: {obj.id}")
-                painter.setPen(old_pen); painter.setBrush(old_brush)
+                painter.setPen(old_pen);
+                painter.setBrush(old_brush)

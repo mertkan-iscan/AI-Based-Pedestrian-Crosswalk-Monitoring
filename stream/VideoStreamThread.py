@@ -8,7 +8,7 @@ from stream.StreamContainer import StreamContainer
 
 
 def wait_until(target_time):
-    """Wait until a target timestamp using a Qt event loop."""
+
     delay = max(0, target_time - time.time())
     if delay > 0:
         loop = QtCore.QEventLoop()
@@ -21,10 +21,7 @@ def wait_until(target_time):
 
 
 def process_video_file(stream_url, wait_func, convert_frame_to_qimage, frame_ready_callback, frame_queue, error_callback, is_running):
-    """Process a video file by reading frames and synchronizing their display.
 
-    The loop now checks the `is_running` callback to allow termination.
-    """
     cap = cv2.VideoCapture(stream_url)
     if not cap.isOpened():
         error_callback("Cannot open video file: " + stream_url)
@@ -42,7 +39,6 @@ def process_video_file(stream_url, wait_func, convert_frame_to_qimage, frame_rea
         display_time = start_time + (current_timestamp - first_timestamp)
         wait_func(display_time)
 
-        # Check again after waiting
         if not is_running():
             break
 
@@ -57,11 +53,12 @@ def process_video_file(stream_url, wait_func, convert_frame_to_qimage, frame_rea
 
 
 def process_live_stream(stream_url, wait_func, convert_frame_to_qimage, frame_ready_callback, frame_queue, error_callback, is_running):
-    """Process a live stream using the provided container and synchronization logic."""
+
     with StreamContainer.get_container_context(stream_url) as container:
         base_pts = None
         start_time = time.time()
         video_stream = container.streams.video[0]
+        video_stream_time_base = video_stream.time_base
 
         for frame in container.decode(video=0):
             if not is_running():
@@ -71,12 +68,11 @@ def process_live_stream(stream_url, wait_func, convert_frame_to_qimage, frame_re
                 base_pts = frame.pts
 
             frame_time, current_time, delay = compute_frame_timing(
-                frame.pts, base_pts, video_stream, start_time
+                frame.pts, base_pts, video_stream_time_base, start_time
             )
             display_time = start_time + frame_time
             wait_func(display_time)
 
-            # Check again after waiting
             if not is_running():
                 break
 
@@ -87,9 +83,9 @@ def process_live_stream(stream_url, wait_func, convert_frame_to_qimage, frame_re
             if not frame_queue.full():
                 frame_queue.put((img, display_time))
 
-def compute_frame_timing(frame_pts, base_pts, video_stream, start_time):
+def compute_frame_timing(frame_pts, base_pts, video_stream_time_base, start_time):
     relative_pts = frame_pts - base_pts if frame_pts is not None else 0
-    frame_time = float(relative_pts * video_stream.time_base)
+    frame_time = float(relative_pts * video_stream_time_base)
     current_time = time.time() - start_time
     delay = frame_time - current_time
     return frame_time, current_time, delay

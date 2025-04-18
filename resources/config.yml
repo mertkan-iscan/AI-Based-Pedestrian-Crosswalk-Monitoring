@@ -11,7 +11,7 @@ yolo:
   imgsz: 640
 deepsort:
   max_disappeared: 50
-  max_distance: 5
+  max_distance: 20
   device: "cuda"
   appearance_weight: 0.5
   motion_weight: 0.5

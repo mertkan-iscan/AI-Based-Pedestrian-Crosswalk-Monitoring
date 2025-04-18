@@ -149,12 +149,10 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         # Update birds eye view with detected objects.
         self.update_birds_eye_view(objects)
 
-    # -------------------------------------------------------------------------
     def update_birds_eye_view(self, objects):
         if self.birds_eye_pixmap is None:
             return
 
-        # --- scale the background first -------------------------------------
         label_w, label_h = self.birds_eye_view_label.width(), self.birds_eye_view_label.height()
         scale = min(label_w / self.birds_eye_pixmap.width(),
                     label_h / self.birds_eye_pixmap.height())
@@ -166,15 +164,15 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         )
 
         painter = QtGui.QPainter(scaled_bg)
-        painter.setPen(QtGui.QPen(QtCore.Qt.red, 6))  # visible but not oversized
+        painter.setPen(QtGui.QPen(QtCore.Qt.red, 6))
 
         H = np.array(self.location["homography_matrix"]) if self.location.get("homography_matrix") is not None else None
 
         for obj in objects:
-            # choose which point to display
+
             src_pt = None
             if getattr(obj, "foot_coordinate", None) is not None:
-                src_pt = obj.foot_coordinate  # pixel space ➜ need transform
+                src_pt = obj.foot_coordinate
                 if H is not None:
                     pt = cv2.perspectiveTransform(np.array([[src_pt]], dtype=np.float32), H)[0, 0]
                 else:
@@ -184,13 +182,11 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             else:
                 continue
 
-            # map to scaled background
             x, y = pt[0] * scale, pt[1] * scale
             painter.drawEllipse(QtCore.QPointF(x, y), 1, 1)
 
         painter.end()
 
-        # QLabel takes care of centering; pixmap already the right size
         self.birds_eye_view_label.setPixmap(scaled_bg)
 
     def resizeEvent(self, event):
