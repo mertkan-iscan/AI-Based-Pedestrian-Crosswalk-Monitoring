@@ -5,7 +5,6 @@ import queue
 from PyQt5 import QtCore, QtGui
 
 from stream.StreamContainer import StreamContainer
-from stream.VideoStreamProcessor import VideoStreamProcessor
 
 
 def wait_until(target_time):
@@ -71,7 +70,7 @@ def process_live_stream(stream_url, wait_func, convert_frame_to_qimage, frame_re
             if base_pts is None:
                 base_pts = frame.pts
 
-            frame_time, current_time, delay = VideoStreamProcessor.compute_frame_timing(
+            frame_time, current_time, delay = compute_frame_timing(
                 frame.pts, base_pts, video_stream, start_time
             )
             display_time = start_time + frame_time
@@ -88,6 +87,12 @@ def process_live_stream(stream_url, wait_func, convert_frame_to_qimage, frame_re
             if not frame_queue.full():
                 frame_queue.put((img, display_time))
 
+def compute_frame_timing(frame_pts, base_pts, video_stream, start_time):
+    relative_pts = frame_pts - base_pts if frame_pts is not None else 0
+    frame_time = float(relative_pts * video_stream.time_base)
+    current_time = time.time() - start_time
+    delay = frame_time - current_time
+    return frame_time, current_time, delay
 
 class VideoStreamThread(QtCore.QThread):
 

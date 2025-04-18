@@ -1,75 +1,92 @@
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import Qt
+import numpy as np
+
 
 class OverlayWidget(QWidget):
+    """
+    Draws bounding boxes, tracker‑points (TP) and foot‑points (FP) on top of the
+    live video.
+    If an inverse homography is supplied with `set_inverse_homography`, tracker
+    points that are stored in *calibrated/world* space are first *uncalibrated*
+    (mapped back to pixel space) before being rendered.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.detections = []
-        self.original_frame_size = (1, 1)  # Placeholder to prevent division by zero
-        self.scaled_pixmap_size = (1, 1)
+        self.detections = []                    # iterable of DetectedObject
+        self.original_frame_size = (1, 1)       # (w,h) of raw frame
+        self.scaled_pixmap_size = (1, 1)        # (w,h) of QLabel pixmap
+        self.H_inv = None                       # 3×3 inverse homography
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
+    # ------------------------------------------------------------------ public
     def set_detections(self, detections, original_frame_size, scaled_pixmap_size):
         self.detections = detections
         self.original_frame_size = original_frame_size
         self.scaled_pixmap_size = scaled_pixmap_size
         self.update()
 
+    def set_inverse_homography(self, H_inv):
+        """Supply a 3×3 matrix that maps *calibrated → pixel* coordinates."""
+        self.H_inv = np.asarray(H_inv) if H_inv is not None else None
+
+    # ----------------------------------------------------------------- private
+    def _to_pixel(self, pt):
+        """(x,y) calibrated → pixel using H_inv; falls back untouched."""
+        if self.H_inv is None:
+            return pt
+        vec = np.array([pt[0], pt[1], 1.0], dtype=float)
+        dst = self.H_inv @ vec
+        if dst[2] == 0:
+            return pt
+        return (dst[0] / dst[2], dst[1] / dst[2])
+
+    # ------------------------------------------------------------- Qt paintEvent
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
 
-        # Calculate scale factors and offsets.
+        # compute scaling from raw frame → QLabel
         ow, oh = self.original_frame_size
         sw, sh = self.scaled_pixmap_size
-        scale_x = sw / ow
-        scale_y = sh / oh
-        scale = min(scale_x, scale_y)
-        offset_x = (self.width() - ow * scale) / 2
-        offset_y = (self.height() - oh * scale) / 2
+        scale  = min(sw / ow, sh / oh)
+        off_x  = (self.width()  - ow * scale) / 2
+        off_y  = (self.height() - oh * scale) / 2
 
         for obj in self.detections:
-            # Draw bounding box in red.
+            # ---------- draw red bounding box ----------
             pen_box = QtGui.QPen(QtGui.QColor(255, 0, 0), 2)
             painter.setPen(pen_box)
             x1, y1, x2, y2 = obj.bbox
             rect = QtCore.QRectF(
-                offset_x + x1 * scale,
-                offset_y + y1 * scale,
+                off_x + x1 * scale,
+                off_y + y1 * scale,
                 (x2 - x1) * scale,
                 (y2 - y1) * scale
             )
             painter.drawRect(rect)
             painter.drawText(rect.topLeft(), f"ID: {obj.id}")
 
-            # Draw the tracker point (centroid) if available.
+            # ---------- tracker point (TP) ----------
             if obj.centroid_coordinate is not None:
-                cx, cy = obj.centroid_coordinate
-                scaled_cx = offset_x + cx * scale
-                scaled_cy = offset_y + cy * scale
-                old_pen = painter.pen()
-                old_brush = painter.brush()
-                marker_pen = QtGui.QPen(QtGui.QColor(0, 0, 255), 2)  # Blue marker for centroid.
-                painter.setPen(marker_pen)
+                cx, cy = self._to_pixel(obj.centroid_coordinate)  # UNCALIBRATE!
+                sx, sy = off_x + cx * scale, off_y + cy * scale
+                old_pen, old_brush = painter.pen(), painter.brush()
+                painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 255), 2))
                 painter.setBrush(QtGui.QColor(0, 0, 255))
-                painter.drawEllipse(QtCore.QPointF(scaled_cx, scaled_cy), 5, 5)
-                painter.drawText(QtCore.QPointF(scaled_cx + 6, scaled_cy), f"TP: {obj.id}")
-                painter.setPen(old_pen)
-                painter.setBrush(old_brush)
+                painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
+                painter.drawText(QtCore.QPointF(sx + 6, sy), f"TP: {obj.id}")
+                painter.setPen(old_pen); painter.setBrush(old_brush)
 
-            # Draw the foot location point if available.
+            # ---------- foot point (FP) – already in pixel space ----------
             if obj.foot_coordinate is not None:
                 fx, fy = obj.foot_coordinate
-                scaled_fx = offset_x + fx * scale
-                scaled_fy = offset_y + fy * scale
-                old_pen = painter.pen()
-                old_brush = painter.brush()
-                marker_pen = QtGui.QPen(QtGui.QColor(0, 255, 0), 2)  # Green marker for foot location.
-                painter.setPen(marker_pen)
+                sx, sy = off_x + fx * scale, off_y + fy * scale
+                old_pen, old_brush = painter.pen(), painter.brush()
+                painter.setPen(QtGui.QPen(QtGui.QColor(0, 255, 0), 2))
                 painter.setBrush(QtGui.QColor(0, 255, 0))
-                painter.drawEllipse(QtCore.QPointF(scaled_fx, scaled_fy), 5, 5)
-                painter.drawText(QtCore.QPointF(scaled_fx + 6, scaled_fy), f"FP: {obj.id}")
-                painter.setPen(old_pen)
-                painter.setBrush(old_brush)
+                painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
+                painter.drawText(QtCore.QPointF(sx + 6, sy), f"FP: {obj.id}")
+                painter.setPen(old_pen); painter.setBrush(old_brush)

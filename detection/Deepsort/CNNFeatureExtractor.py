@@ -4,18 +4,19 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as T
-from torchvision.models import EfficientNet_B0_Weights
+from torchvision.models import EfficientNet_B0_Weights, EfficientNet_V2_S_Weights
 
 
 class CNNFeatureExtractor:
     def __init__(self, device='cuda'):
+
         self.device = device
-        # Use pre-trained EfficientNet-B0 and remove the classifier layer.
-        self.model = models.efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
-        # Replace the classifier with identity so that the output is the raw features.
+        self.model = models.efficientnet_v2_s(weights=EfficientNet_V2_S_Weights.IMAGENET1K_V1)
+
         self.model.classifier = nn.Identity()
         self.model = self.model.to(self.device)
         self.model.eval()
+
         self.transform = T.Compose([
             T.ToPILImage(),
             T.Resize((224, 224)),
@@ -25,7 +26,6 @@ class CNNFeatureExtractor:
         ])
 
     def extract_features(self, frame, bbox):
-        # Code remains unchanged
         x1, y1, x2, y2 = bbox[:4]
         h, w, _ = frame.shape
         x1 = max(0, min(x1, w - 1))
@@ -34,7 +34,7 @@ class CNNFeatureExtractor:
         y2 = max(0, min(y2, h - 1))
         patch = frame[y1:y2, x1:x2]
         if patch.size == 0:
-            return np.zeros(1280)  # Adjusted to EfficientNet-B0's output dim.
+            return np.zeros(1280)
         patch = cv2.cvtColor(patch, cv2.COLOR_BGR2RGB)
         patch_tensor = self.transform(patch).unsqueeze(0).to(self.device)
         with torch.no_grad():
@@ -44,7 +44,6 @@ class CNNFeatureExtractor:
         return features
 
     def extract_features_batch(self, frame, bboxes):
-        # Code remains similar for batch processing.
         patches = []
         h, w, _ = frame.shape
         for bbox in bboxes:
@@ -65,4 +64,4 @@ class CNNFeatureExtractor:
         with torch.no_grad():
             batch_features = self.model(batch_tensor)
         batch_features = batch_features.cpu().numpy()
-        return batch_features  # Output shape: (N, 1280)
+        return batch_features

@@ -1,18 +1,25 @@
+import os
+import queue
+import time
+import cv2
+import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 from gui.OverlayWidget import OverlayWidget
 from stream.VideoStreamThread import VideoStreamThread
 from stream.DetectionThread import DetectionThread
-import queue
-import time
+
 
 class ScalableLabel(QtWidgets.QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(0, 0)
+
     def sizeHint(self):
         return QtCore.QSize(100, 100)
+
     def minimumSizeHint(self):
         return QtCore.QSize(0, 0)
+
 
 class VideoPlayerWindow(QtWidgets.QMainWindow):
     def __init__(self, location, parent=None):
@@ -21,6 +28,14 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.resize(800, 600)
         self.location = location
         self.current_pixmap = None
+
+        # Load birds eye view image (if available)
+        birds_eye_path = self.location.get("birds_eye_image", None)
+        if birds_eye_path and os.path.exists(birds_eye_path):
+            self.birds_eye_pixmap = QtGui.QPixmap(birds_eye_path)
+        else:
+            self.birds_eye_pixmap = None
+
         self.initUI()
         self.frame_queue = queue.Queue(maxsize=10)
         self.start_stream()
@@ -43,13 +58,18 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.stack_layout.addWidget(self.video_label)
 
         self.overlay = OverlayWidget(video_container)
+
+        if self.location.get("homography_matrix") is not None:
+            H_inv = np.linalg.inv(np.array(self.location["homography_matrix"]))
+            self.overlay.set_inverse_homography(H_inv)
+
         self.overlay.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
         self.overlay.setStyleSheet("background: transparent;")
         self.stack_layout.addWidget(self.overlay)
 
         main_layout.addWidget(video_container, stretch=1)
 
-        # Right side: objects list, latency (delay) info, and buttons.
+        # Right side: objects list, latency info, stop button, and birds eye view display.
         right_side_widget = QtWidgets.QWidget()
         right_side_widget.setFixedWidth(300)
         right_side_layout = QtWidgets.QVBoxLayout(right_side_widget)
@@ -66,6 +86,23 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         button_layout.addWidget(stop_btn)
         right_side_layout.addLayout(button_layout)
 
+        birds_eye_title = QtWidgets.QLabel("Bird's Eye View")
+        birds_eye_title.setAlignment(QtCore.Qt.AlignCenter)
+        right_side_layout.addWidget(birds_eye_title)
+
+        self.birds_eye_view_label = QtWidgets.QLabel()
+        right_side_widget.setFixedWidth(400)
+        self.birds_eye_view_label.setAlignment(QtCore.Qt.AlignCenter)
+
+        if self.birds_eye_pixmap:
+            scaled = self.birds_eye_pixmap.scaled(self.birds_eye_view_label.size(),
+                                                  QtCore.Qt.KeepAspectRatio,
+                                                  QtCore.Qt.SmoothTransformation)
+            self.birds_eye_view_label.setPixmap(scaled)
+        else:
+            self.birds_eye_view_label.setText("No Bird's Eye Image")
+        right_side_layout.addWidget(self.birds_eye_view_label)
+
         main_layout.addWidget(right_side_widget, stretch=0)
 
     def start_stream(self):
@@ -79,7 +116,11 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.stream_thread.start()
 
     def start_detection(self):
-        self.detection_thread = DetectionThread(self.location["polygons_file"], self.frame_queue)
+        homography = self.location.get("homography_matrix", None)
+        if homography is not None:
+            homography = np.array(homography)
+        self.detection_thread = DetectionThread(self.location["polygons_file"], self.frame_queue,
+                                                homography_matrix=homography)
         self.detection_thread.detections_ready.connect(self.update_detected_objects)
         self.detection_thread.error_signal.connect(self.handle_error)
         self.detection_thread.start()
@@ -102,9 +143,55 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             self.objects_list.addItem(item_text)
         self.overlay.set_detections(objects, self.original_frame_size, self.scaled_pixmap_size)
         self.overlay.raise_()
-        # Compute and display the delay between the frame used for inference and now.
+        # Compute and display the delay.
         delay = time.time() - bbox_capture_time
         self.latency_label.setText(f"Delay: {delay:.2f} sec")
+        # Update birds eye view with detected objects.
+        self.update_birds_eye_view(objects)
+
+    # -------------------------------------------------------------------------
+    def update_birds_eye_view(self, objects):
+        if self.birds_eye_pixmap is None:
+            return
+
+        # --- scale the background first -------------------------------------
+        label_w, label_h = self.birds_eye_view_label.width(), self.birds_eye_view_label.height()
+        scale = min(label_w / self.birds_eye_pixmap.width(),
+                    label_h / self.birds_eye_pixmap.height())
+        scaled_bg = self.birds_eye_pixmap.scaled(
+            self.birds_eye_pixmap.width() * scale,
+            self.birds_eye_pixmap.height() * scale,
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation
+        )
+
+        painter = QtGui.QPainter(scaled_bg)
+        painter.setPen(QtGui.QPen(QtCore.Qt.red, 6))  # visible but not oversized
+
+        H = np.array(self.location["homography_matrix"]) if self.location.get("homography_matrix") is not None else None
+
+        for obj in objects:
+            # choose which point to display
+            src_pt = None
+            if getattr(obj, "foot_coordinate", None) is not None:
+                src_pt = obj.foot_coordinate  # pixel space ➜ need transform
+                if H is not None:
+                    pt = cv2.perspectiveTransform(np.array([[src_pt]], dtype=np.float32), H)[0, 0]
+                else:
+                    pt = src_pt
+            elif getattr(obj, "centroid_coordinate", None) is not None:
+                pt = obj.centroid_coordinate  # already calibrated
+            else:
+                continue
+
+            # map to scaled background
+            x, y = pt[0] * scale, pt[1] * scale
+            painter.drawEllipse(QtCore.QPointF(x, y), 1, 1)
+
+        painter.end()
+
+        # QLabel takes care of centering; pixmap already the right size
+        self.birds_eye_view_label.setPixmap(scaled_bg)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

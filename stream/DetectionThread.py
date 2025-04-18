@@ -17,7 +17,7 @@ class DetectionThread(QtCore.QThread):
     detections_ready = QtCore.pyqtSignal(list, float)
     error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(self, polygons_file, frame_queue, parent=None):
+    def __init__(self, polygons_file, frame_queue, homography_matrix=None, parent=None):
         super().__init__(parent)
         self.polygons_file = polygons_file
         self.frame_queue = frame_queue
@@ -38,6 +38,7 @@ class DetectionThread(QtCore.QThread):
             device=device,
             appearance_weight=appearance_weight,
             motion_weight=motion_weight
+            ,homography_matrix=homography_matrix
         )
 
         if RegionEditor.region_polygons is None or RegionEditor.region_json_file != self.polygons_file:
@@ -84,16 +85,21 @@ class DetectionThread(QtCore.QThread):
                 detected_objects_list = []
 
                 for objectID, (centroid, bbox) in objects_dict.items():
+
                     if len(bbox) < 5:
                         continue
 
                     object_type = DetectedObject.CLASS_NAMES.get(bbox[4], "unknown")
                     foot = calculate_foot_location(bbox) if (object_type == "person" and bbox[4] == 0) else None
                     location = foot if foot is not None else centroid
+
                     region = RegionEditor.get_polygons_for_point(
                         (int(location[0]), int(location[1])), RegionEditor.region_polygons)
+
                     region = region[0] if region else "unknown"
+
                     detected_obj = DetectedObject(objectID, object_type, bbox[:4], centroid, foot, region)
+
                     detected_objects_list.append(detected_obj)
 
                 self.detections_ready.emit(detected_objects_list, capture_time)

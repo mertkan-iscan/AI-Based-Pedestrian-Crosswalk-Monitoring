@@ -11,8 +11,26 @@
     },
     {
         "name": "mevlana video 1",
-        "video_path": "D:/CSE_492_project/konya_live_videos/pedestrian_cross_1_1.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json"
+        "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rain_start_morning_.mp4",
+        "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json",
+        "homography_matrix": [
+            [
+                -0.13752574392923342,
+                -1.1811094164194376,
+                391.1864022344211
+            ],
+            [
+                -0.07032682708234175,
+                -1.98588282210358,
+                597.286615622066
+            ],
+            [
+                -0.00012000367339910118,
+                -0.004292389462633234,
+                1.0
+            ]
+        ],
+        "birds_eye_image": "C:/Users/merti/Desktop/satellite_view.jpg"
     },
     {
         "name": "zafer video 1",
@@ -20,13 +38,31 @@
         "polygons_file": "resources\\location_regions\\polygons_a45a793188794bcfb1e87a103addbb02.json"
     },
     {
-        "name": "parallel live",
+        "name": "yeni meral live",
         "stream_url": "https://content.tvkur.com/l/c77i6cfbb2nj4i0fr7s0/master.m3u8",
         "polygons_file": "resources\\location_regions\\polygons_8569be15094c447495e9d3b0db2cfba0.json"
     },
     {
-        "name": "parallel video 1",
-        "video_path": "D:/CSE_492_project/konya_live_videos/sunny_afternoon_cropped.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_52a90f0ae8cb40d88bb1c1030d7e7bbf.json"
+        "name": "yeni meral video 1",
+        "video_path": "D:/CSE_492_project/konya_live_videos/sunny_noon_cropped.mp4",
+        "polygons_file": "resources\\location_regions\\polygons_52a90f0ae8cb40d88bb1c1030d7e7bbf.json",
+        "birds_eye_image": "C:/Users/merti/Desktop/yeni_meral_bird.png",
+        "homography_matrix": [
+            [
+                -0.9587665396597553,
+                -4.77429653802541,
+                885.2321915067112
+            ],
+            [
+                -0.3555248720250453,
+                -9.393340464098506,
+                1619.7161534604656
+            ],
+            [
+                -0.0006383959339724221,
+                -0.012308442493684261,
+                1.0
+            ]
+        ]
     }
 ]
