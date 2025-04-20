@@ -17,16 +17,11 @@ class ConfigManager:
                 "device": "cuda",
                 "imgsz": "640"
             },
-            "inference": {
-                "skip_frames": 2,
-                "max_latency": 0.5,
-                "max_frame_gap": 5.0
-            },
             "database": {
                 "record_paths": False,
                 "db_file": "resources/object_paths.db"
             },
-            "deepsort": {  # New section for DeepSort variables
+            "deepsort": {
                 "max_disappeared": 50,
                 "max_distance": 100,
                 "device": "cuda",
@@ -43,9 +38,6 @@ class ConfigManager:
 
     def get_yolo_config(self):
         return self.config.get("yolo", {})
-
-    def get_inference_config(self):
-        return self.config.get("inference", {})
 
     def get_database_config(self):
         return self.config.get("database", {})

@@ -18,7 +18,7 @@ def run_inference(img):
 
     frame_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    results = model(frame_rgb, classes=[0, 1, 2, 3], verbose=False, imgsz=imgsz)
+    results = model(frame_rgb, classes=[0,1,2,3,5,7], verbose=False, imgsz=imgsz)
 
     result = results[0]
 

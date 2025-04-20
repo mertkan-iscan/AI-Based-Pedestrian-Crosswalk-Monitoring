@@ -26,11 +26,11 @@ class DetectionThread(QtCore.QThread):
         config_manager = ConfigManager()
         deepsort_config = config_manager.get_deepsort_config()
 
-        max_disappeared = deepsort_config.get("max_disappeared", 40)
-        max_distance = deepsort_config.get("max_distance", 100)
-        device = deepsort_config.get("device", "cuda")
-        appearance_weight = deepsort_config.get("appearance_weight", 0.5)
-        motion_weight = deepsort_config.get("motion_weight", 0.5)
+        max_disappeared = deepsort_config.get("max_disappeared")
+        max_distance = deepsort_config.get("max_distance")
+        device = deepsort_config.get("device")
+        appearance_weight = deepsort_config.get("appearance_weight")
+        motion_weight = deepsort_config.get("motion_weight")
 
         self.tracker = DeepSortTracker(
             max_disappeared=max_disappeared,
@@ -74,11 +74,9 @@ class DetectionThread(QtCore.QThread):
 
             frame, capture_time = frame_tuple
 
-            # Apply blackout masking based on polygon data.
             masked_frame = self.apply_detection_blackout(frame)
 
             try:
-                # Run YOLO detection on the masked frame.
                 detections = run_inference(masked_frame)
                 rects_for_tracker = detections
                 objects_dict = self.tracker.update(rects_for_tracker, frame=masked_frame)
