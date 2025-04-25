@@ -11,26 +11,26 @@
     },
     {
         "name": "mevlana video 1",
-        "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rain_start_morning_.mp4",
+        "video_path": "E:/konya_project/konya_raw_images/videos/mevlana_rain_start_morning_.mp4",
         "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json",
         "homography_matrix": [
             [
-                -0.13752574392923342,
-                -1.1811094164194376,
-                391.1864022344211
+                -0.16508295155458577,
+                -0.8252817275697911,
+                259.751265049978
             ],
             [
-                -0.07032682708234175,
-                -1.98588282210358,
-                597.286615622066
+                -0.1829718016505498,
+                -2.0821704824807523,
+                657.7301264763993
             ],
             [
-                -0.00012000367339910118,
-                -0.004292389462633234,
+                -0.00030658197317534066,
+                -0.004180986961983862,
                 1.0
             ]
         ],
-        "birds_eye_image": "C:/Users/merti/Desktop/satellite_view.jpg"
+        "birds_eye_image": "C:/Users/Mertkan/Desktop/bird_mevlana.png"
     },
     {
         "name": "zafer video 1",

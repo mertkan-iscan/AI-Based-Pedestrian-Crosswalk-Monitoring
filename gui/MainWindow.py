@@ -1,9 +1,13 @@
 from PyQt5 import QtCore, QtWidgets
+
 from gui.AddLocationDialog import AddLocationDialog
 from gui.AddVideoRecordDialog import AddVideoRecordDialog
 from gui.RegionEditorDialog import RegionEditorDialog
 from gui.VideoPlayerWindow import VideoPlayerWindow
-from region import RegionEditor, LocationManager
+
+from region import LocationManager
+from region.RegionEditor import RegionEditor
+
 from stream.FrameExtractor import FrameExtractor
 
 
@@ -97,11 +101,12 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
             return
 
-        RegionEditor.region_json_file = self.selected_location["polygons_file"]
-        RegionEditor.load_polygons()
+        # Instantiate and load via our new class
+        editor = RegionEditor(self.selected_location["polygons_file"])
+        editor.load_polygons()
 
-        # Use FrameExtractor for video file frame retrieval.
-        if "video_path" in self.selected_location and self.selected_location["video_path"]:
+        # Grab one frame (file or stream) as before
+        if self.selected_location.get("video_path"):
             frame = FrameExtractor.get_single_frame_file(self.selected_location["video_path"])
         else:
             frame = FrameExtractor.get_single_frame(self.selected_location["stream_url"])
@@ -110,8 +115,9 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Error", "Could not retrieve a frame from the source.")
             return
 
-        dialog = RegionEditorDialog(frame, self)
-        dialog.exec_()
+        dialog = RegionEditorDialog(frame, self, region_editor=editor)
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            editor.save_polygons()
 
     def open_edit_location_dialog(self):
         if not self.selected_location:

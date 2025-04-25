@@ -4,6 +4,8 @@ import time
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from detection.GlobalState import GlobalState
 from gui.OverlayWidget import OverlayWidget
 from stream.VideoStreamThread import VideoStreamThread
 from stream.DetectionThread import DetectionThread
@@ -136,17 +138,29 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.original_frame_size = (pixmap.width(), pixmap.height())
         self.overlay.update()
 
-    def update_detected_objects(self, objects, bbox_capture_time):
+    def update_detected_objects(self, *args):
+        # Pull the latest global detected list and timestamp
+        objects, capture_time = GlobalState.instance().get()
+
+        # Update the QListWidget
         self.objects_list.clear()
         for obj in objects:
-            item_text = f"ID: {obj.id}, Type: {obj.object_type}, Region: {obj.region}"
-            self.objects_list.addItem(item_text)
-        self.overlay.set_detections(objects, self.original_frame_size, self.scaled_pixmap_size)
+            text = f"ID: {obj.id}, Type: {obj.object_type}, Region: {obj.region}"
+            self.objects_list.addItem(text)
+
+        # Update overlay
+        self.overlay.set_detections(
+            objects,
+            self.original_frame_size,
+            self.scaled_pixmap_size
+        )
         self.overlay.raise_()
-        # Compute and display the delay.
-        delay = time.time() - bbox_capture_time
+
+        # Update latency label
+        delay = time.time() - capture_time
         self.latency_label.setText(f"Delay: {delay:.2f} sec")
-        # Update birds eye view with detected objects.
+
+        # Refresh birds-eye view
         self.update_birds_eye_view(objects)
 
     def update_birds_eye_view(self, objects):

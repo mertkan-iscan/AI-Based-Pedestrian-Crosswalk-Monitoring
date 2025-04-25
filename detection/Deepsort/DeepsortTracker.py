@@ -5,18 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from detection.Deepsort.CNNFeatureExtractor import CNNFeatureExtractor
 from detection.Deepsort.Track import Track
 
-
-def calibrate_point(point, homography_matrix):
-
-    pt = np.array([point[0], point[1], 1.0], dtype=np.float32)
-    transformed = np.dot(homography_matrix, pt)
-
-    if transformed[2] != 0:
-        return (transformed[0] / transformed[2], transformed[1] / transformed[2])
-    else:
-        return (transformed[0], transformed[1])
-
-
 class DeepSortTracker:
     def __init__(self, max_disappeared=50, max_distance=100, device='cuda',
                  appearance_weight=0.5, motion_weight=0.5, homography_matrix=None):
@@ -30,6 +18,16 @@ class DeepSortTracker:
         self.homography_matrix = homography_matrix
         self.feature_extractor = CNNFeatureExtractor(device=device)
         self.executor = ThreadPoolExecutor(max_workers=1)# will be benchmarked
+
+    def calibrate_point(self, point, homography_matrix):
+
+        pt = np.array([point[0], point[1], 1.0], dtype=np.float32)
+        transformed = np.dot(homography_matrix, pt)
+
+        if transformed[2] != 0:
+            return (transformed[0] / transformed[2], transformed[1] / transformed[2])
+        else:
+            return (transformed[0], transformed[1])
 
     def _compute_cost(self, detections):
 
@@ -60,7 +58,6 @@ class DeepSortTracker:
 
     def update(self, rects, frame=None, features=None):
 
-
         if len(rects) == 0:
             for track in self.tracks:
                 track.time_since_update += 1
@@ -89,7 +86,7 @@ class DeepSortTracker:
                 centroid_pixel = (cX, cY)
 
                 if self.homography_matrix is not None:
-                    calibrated = calibrate_point(centroid_pixel, self.homography_matrix)
+                    calibrated = self.calibrate_point(centroid_pixel, self.homography_matrix)
                 else:
                     calibrated = centroid_pixel
 
@@ -122,7 +119,7 @@ class DeepSortTracker:
                 cY = int((y1 + y2) / 2.0)
                 centroid_pixel = (cX, cY)
                 if self.homography_matrix is not None:
-                    calibrated = calibrate_point(centroid_pixel, self.homography_matrix)
+                    calibrated = self.calibrate_point(centroid_pixel, self.homography_matrix)
                 else:
                     calibrated = centroid_pixel
                 if features is not None:

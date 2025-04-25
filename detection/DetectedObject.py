@@ -15,6 +15,7 @@ class DetectedObject:
 
         self.bbox = bbox
         self.centroid_coordinate = centroid_coordinate
+
         #only person class has foot coordinates
         self.foot_coordinate = foot_coordinate if object_type == "person" else None
 
