@@ -7,11 +7,6 @@ from PyQt5 import QtCore
 from region.RegionEditor import RegionEditor
 
 class CrosswalkInspectThread(QtCore.QThread):
-    """
-    Pulls (objects_list, capture_time) tuples from object_queue,
-    inspects each object's foot or centroid against your polygons in parallel,
-    updates obj.region, and emits inspection_ready(objects_list, capture_time).
-    """
     inspection_ready = QtCore.pyqtSignal(list, float)
     error_signal     = QtCore.pyqtSignal(str)
 

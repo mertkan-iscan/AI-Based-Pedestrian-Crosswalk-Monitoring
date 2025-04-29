@@ -3,7 +3,7 @@ database:
   record_paths: False
 yolo:
   device: cuda
-  version: yolov5n.pt
+  version: yolov5xu.pt
   imgsz: 640
 deepsort:
   max_disappeared: 50

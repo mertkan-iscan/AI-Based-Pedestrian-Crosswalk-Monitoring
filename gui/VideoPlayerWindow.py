@@ -9,6 +9,8 @@ from detection.GlobalState import GlobalState
 from gui.OverlayWidget import OverlayWidget
 from stream.VideoStreamThread import VideoStreamThread
 from stream.DetectionThread import DetectionThread
+from utils.benchmark.MetricSignals import signals
+from utils.benchmark.ReportManager import ReportManager
 
 
 class ScalableLabel(QtWidgets.QLabel):
@@ -108,14 +110,21 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         main_layout.addWidget(right_side_widget, stretch=0)
 
     def start_stream(self):
+
         if "video_path" in self.location and self.location["video_path"]:
             stream_source = self.location["video_path"]
         else:
             stream_source = self.location["stream_url"]
+
         self.stream_thread = VideoStreamThread(stream_source, frame_queue=self.frame_queue)
         self.stream_thread.frame_ready.connect(self.update_frame)
         self.stream_thread.error_signal.connect(self.handle_error)
+        self.stream_thread.finished.connect(self._on_stream_ended)
         self.stream_thread.start()
+
+    def _on_stream_ended(self):
+        # when the video file hits EOF we'll come here
+        self.stop_stream()
 
     def start_detection(self):
         homography = self.location.get("homography_matrix", None)
@@ -128,6 +137,9 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.detection_thread.start()
 
     def update_frame(self, q_img):
+        #signal for benchmark
+        signals.frame_logged.emit()
+
         pixmap = QtGui.QPixmap.fromImage(q_img)
         self.current_pixmap = pixmap
         scaled_pixmap = pixmap.scaled(self.video_label.size(),
@@ -159,6 +171,9 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         # Update latency label
         delay = time.time() - capture_time
         self.latency_label.setText(f"Delay: {delay:.2f} sec")
+
+        #signal for benchmark
+        signals.delay_logged.emit(delay)
 
         # Refresh birds-eye view
         self.update_birds_eye_view(objects)
@@ -213,12 +228,24 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.stop_stream()
 
     def stop_stream(self):
-        if hasattr(self, "stream_thread") and self.stream_thread is not None:
+        if hasattr(self, "stream_thread") and self.stream_thread:
             self.stream_thread.stop()
             self.stream_thread = None
-        if hasattr(self, "detection_thread") and self.detection_thread is not None:
+        if hasattr(self, "detection_thread") and self.detection_thread:
             self.detection_thread.stop()
             self.detection_thread = None
+
+        # --- NEW: emit the per-second report if we were playing a file ---
+        video_file = self.location.get("video_path")
+        if video_file:
+            report_path = ReportManager(video_file).save_per_second_report()
+            print(f"Per‐second report written to: {report_path}")
+            # optionally pop up a message box:
+            QtWidgets.QMessageBox.information(
+                self, "Performance Report",
+                f"Per‐second report saved to:\n{report_path}"
+            )
+
         self.close()
 
     def closeEvent(self, event):

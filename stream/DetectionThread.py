@@ -1,4 +1,5 @@
 # stream/DetectionThread.py
+import time
 
 import cv2
 import numpy as np
@@ -11,6 +12,7 @@ from region.RegionEditor import RegionEditor
 from detection.DetectedObject import DetectedObject
 from utils.ConfigManager import ConfigManager
 from detection.GlobalState import GlobalState
+from utils.benchmark.MetricSignals import signals
 
 
 class DetectionThread(QtCore.QThread):
@@ -53,11 +55,21 @@ class DetectionThread(QtCore.QThread):
             masked = self.apply_detection_blackout(frame)
 
             try:
+                # — start timing inference —
+                t0 = time.time()
+
                 detections = run_inference(masked)
+
+                dt = time.time() - t0
+                # — emit the benchmark signal —
+                signals.detection_logged.emit(dt)
+
+
                 objects_dict = self.tracker.update(detections, frame=masked)
                 detected_objects = []
 
                 for objectID, (centroid, bbox) in objects_dict.items():
+
                     if len(bbox) < 5:
                         continue
 
