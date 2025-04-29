@@ -1,28 +1,36 @@
 # stream/DetectionThread.py
+import queue
 import time
-
 import cv2
 import numpy as np
 from PyQt5 import QtCore
-import queue
 
-from detection.Deepsort.DeepsortTracker import DeepSortTracker
-from detection.Inference import run_inference, calculate_foot_location
-from region.RegionEditor import RegionEditor
 from detection.DetectedObject import DetectedObject
-from utils.ConfigManager import ConfigManager
+from stream.FrameProducerThread import wait_until
+from detection.Inference import run_inference, calculate_foot_location
+from detection.Deepsort.DeepsortTracker import DeepSortTracker
+from region.RegionEditor import RegionEditor
 from detection.GlobalState import GlobalState
+from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals
 
 
 class DetectionThread(QtCore.QThread):
     detections_ready = QtCore.pyqtSignal(list, float)
-    error_signal     = QtCore.pyqtSignal(str)
+    error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(self, polygons_file, frame_queue, homography_matrix=None, parent=None):
+    def __init__(
+        self,
+        polygons_file: str,
+        detection_queue: "queue.Queue",
+        homography_matrix=None,
+        delay: float = 1.0,
+        parent=None,
+    ):
         super().__init__(parent)
-        self.frame_queue   = frame_queue
-        self._is_running   = True
+        self.queue   = detection_queue
+        self.delay   = float(delay)
+        self._run    = True
 
         cfg = ConfigManager().get_deepsort_config()
         self.tracker = DeepSortTracker(
@@ -31,13 +39,14 @@ class DetectionThread(QtCore.QThread):
             device            = cfg.get("device"),
             appearance_weight = cfg.get("appearance_weight"),
             motion_weight     = cfg.get("motion_weight"),
-            homography_matrix = homography_matrix
+            homography_matrix = homography_matrix,
         )
 
         self.editor = RegionEditor(polygons_file)
         self.editor.load_polygons()
 
-    def apply_detection_blackout(self, frame):
+    # ------------------------------------------------------------------ #
+    def _mask_blackout(self, frame):
         masked = frame.copy()
         for poly in self.editor.region_polygons:
             if poly.get("type") == "detection_blackout":
@@ -45,60 +54,62 @@ class DetectionThread(QtCore.QThread):
                 cv2.fillPoly(masked, [pts], (0, 0, 0))
         return masked
 
+    # ------------------------------------------------------------------ #
     def run(self):
-        while self._is_running:
+        while self._run:
             try:
-                frame, capture_time = self.frame_queue.get(timeout=0.05)
+                frame, capture_time, display_time = self.queue.get(timeout=0.05)
             except queue.Empty:
                 continue
 
-            masked = self.apply_detection_blackout(frame)
+            masked = self._mask_blackout(frame)
 
-            try:
-                # — start timing inference —
-                t0 = time.time()
+            t0 = time.time()
+            detections = run_inference(masked)
+            signals.detection_logged.emit(time.time() - t0)
 
-                detections = run_inference(masked)
+            tracks = self.tracker.update(detections, frame=masked)
 
-                dt = time.time() - t0
-                # — emit the benchmark signal —
-                signals.detection_logged.emit(dt)
+            detected_objects = []
+            for tid, (centroid, bbox) in tracks.items():
+                if len(bbox) == 4:
+                    x1, y1, x2, y2 = bbox
+                    cls_idx = -1
+                else:
+                    x1, y1, x2, y2, cls_idx = bbox[:5]
 
+                obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 
-                objects_dict = self.tracker.update(detections, frame=masked)
-                detected_objects = []
+                foot = (
+                    calculate_foot_location((x1, y1, x2, y2))
+                    if obj_type == "person"
+                    else None
+                )
+                loc = foot if foot is not None else centroid
+                regions = self.editor.get_polygons_for_point((int(loc[0]), int(loc[1])))
+                region  = regions[0] if regions else "unknown"
 
-                for objectID, (centroid, bbox) in objects_dict.items():
-
-                    if len(bbox) < 5:
-                        continue
-
-                    obj_type = DetectedObject.CLASS_NAMES.get(bbox[4], "unknown")
-                    foot = (
-                        calculate_foot_location(bbox)
-                        if obj_type == "person" and bbox[4] == 0
-                        else None
+                detected_objects.append(
+                    DetectedObject(
+                        tid,
+                        obj_type,
+                        (x1, y1, x2, y2),
+                        centroid,
+                        foot,
+                        region,
                     )
-                    location = foot if foot is not None else centroid
+                )
 
-                    regions = self.editor.get_polygons_for_point(
-                        (int(location[0]), int(location[1]))
-                    )
-                    region = regions[0] if regions else "unknown"
+            target = display_time + self.delay
+            if time.time() > target:       # stale – drop detections
+                continue
 
-                    detected_objects.append(
-                        DetectedObject(objectID, obj_type, bbox[:4], centroid, foot, region)
-                    )
+            wait_until(target)
 
-                # update global state (with aging)
-                GlobalState.instance().update(detected_objects, capture_time)
-                # emit for GUI or other listeners
-                self.detections_ready.emit(detected_objects, capture_time)
-
-            except Exception as e:
-                self.error_signal.emit(f"Error: {repr(e)}")
+            GlobalState.instance().update(detected_objects, capture_time)
+            self.detections_ready.emit(detected_objects, capture_time)
 
     def stop(self):
-        self._is_running = False
+        self._run = False
         self.quit()
         self.wait()
