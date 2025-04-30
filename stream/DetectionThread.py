@@ -1,4 +1,3 @@
-# stream/DetectionThread.py
 import queue
 import time
 import cv2
@@ -45,7 +44,6 @@ class DetectionThread(QtCore.QThread):
         self.editor = RegionEditor(polygons_file)
         self.editor.load_polygons()
 
-    # ------------------------------------------------------------------ #
     def _mask_blackout(self, frame):
         masked = frame.copy()
         for poly in self.editor.region_polygons:
@@ -54,7 +52,6 @@ class DetectionThread(QtCore.QThread):
                 cv2.fillPoly(masked, [pts], (0, 0, 0))
         return masked
 
-    # ------------------------------------------------------------------ #
     def run(self):
         while self._run:
             try:
@@ -68,7 +65,11 @@ class DetectionThread(QtCore.QThread):
             detections = run_inference(masked)
             signals.detection_logged.emit(time.time() - t0)
 
-            tracks = self.tracker.update(detections, frame=masked)
+            tracks = self.tracker.update(
+                detections,
+                frame=masked,
+                timestamp=capture_time
+            )
 
             detected_objects = []
             for tid, (centroid, bbox) in tracks.items():
@@ -101,12 +102,9 @@ class DetectionThread(QtCore.QThread):
                 )
 
             target = display_time + self.delay
-            if time.time() > target:       # stale – drop detections
-                continue
-
             wait_until(target)
 
-            GlobalState.instance().update(detected_objects, capture_time)
+            GlobalState.instance().update(detected_objects, time.time())
             self.detections_ready.emit(detected_objects, capture_time)
 
     def stop(self):

@@ -52,7 +52,6 @@ def _produce_frames(
         vid_ts     = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
         sched_time = wall_start + (vid_ts - video_ts0)
 
-        # pace to real time -------------------------------------------------
         wait_until(sched_time)
 
         item = (frame.copy(), time.time(), sched_time)

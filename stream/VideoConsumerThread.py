@@ -34,6 +34,7 @@ class VideoConsumerThread(QtCore.QThread):
 
             # drop if we’re already too late
             if time.time() > target:
+                print("Video frame timed out")
                 continue
 
             wait_until(target)

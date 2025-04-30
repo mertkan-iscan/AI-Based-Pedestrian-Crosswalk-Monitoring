@@ -33,7 +33,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(f"Live Stream – {location['name']}")
         self.location             = location
         self.current_pixmap       = None
-        self.original_frame_size  = (1, 1)   # <- defined early
+        self.original_frame_size  = (1, 1)
         self.scaled_pixmap_size   = (1, 1)
         self._report_shown        = False
 
@@ -50,13 +50,13 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self._start_threads()
         self.showMaximized()
 
-    # ------------------------------------------------------------------ #
+
     def _build_ui(self):
         central = QtWidgets.QWidget(self)
         self.setCentralWidget(central)
         layout  = QtWidgets.QHBoxLayout(central)
 
-        # -------- video & overlay stack -------------------------------
+
         video_container = QtWidgets.QWidget()
         self.stack      = QtWidgets.QStackedLayout(video_container)
         self.stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
@@ -74,7 +74,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.overlay)
         layout.addWidget(video_container, stretch=1)
 
-        # -------- right-side panel ------------------------------------
+
         side            = QtWidgets.QWidget()
         side.setFixedWidth(300)
         side_layout     = QtWidgets.QVBoxLayout(side)
@@ -101,7 +101,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
         layout.addWidget(side, stretch=0)
 
-    # ------------------------------------------------------------------ #
+
     def _start_threads(self):
         source = self.location.get("video_path") or self.location["stream_url"]
 
@@ -120,7 +120,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.detection_thread.error_signal.connect(self._handle_error)
         self.detection_thread.start()
 
-    # ------------------------------------------------------------------ #
+
     def _update_frame(self, q_img):
         signals.frame_logged.emit()
 
@@ -135,7 +135,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
         self.overlay.update()
 
-    # ------------------------------------------------------------------ #
+
     def _update_detections(self, *_):
         objects, capture_time = GlobalState.instance().get()
 
@@ -155,41 +155,59 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
         self._update_birds_eye(objects)
 
-    # ------------------------------------------------------------------ #
+
     def _update_birds_eye(self, objects):
-        if not self.birds_eye_pixmap:
+        if self.birds_eye_pixmap is None:
             return
 
-        lw, lh   = self.birds_eye_view.width(), self.birds_eye_view.height()
-        scale    = min(lw / self.birds_eye_pixmap.width(), lh / self.birds_eye_pixmap.height())
-        bg_scaled = self.birds_eye_pixmap.scaled(self.birds_eye_pixmap.width()*scale, self.birds_eye_pixmap.height()*scale, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        label_w, label_h = self.birds_eye_view.width(), self.birds_eye_view.height()
+        scale = min(label_w / self.birds_eye_pixmap.width(),
+                    label_h / self.birds_eye_pixmap.height())
+        scaled_bg = self.birds_eye_pixmap.scaled(
+            self.birds_eye_pixmap.width() * scale,
+            self.birds_eye_pixmap.height() * scale,
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation
+        )
 
-        painter = QtGui.QPainter(bg_scaled)
+        painter = QtGui.QPainter(scaled_bg)
         painter.setPen(QtGui.QPen(QtCore.Qt.red, 6))
+
         H = np.array(self.location["homography_matrix"]) if self.location.get("homography_matrix") is not None else None
 
         for obj in objects:
-            pt_src = obj.foot_coordinate or obj.centroid_coordinate
-            if pt_src is None:
+
+            src_pt = None
+            if getattr(obj, "foot_coordinate", None) is not None:
+                src_pt = obj.foot_coordinate
+                if H is not None:
+                    pt = cv2.perspectiveTransform(np.array([[src_pt]], dtype=np.float32), H)[0, 0]
+                else:
+                    pt = src_pt
+            elif getattr(obj, "centroid_coordinate", None) is not None:
+                pt = obj.centroid_coordinate  # already calibrated
+            else:
                 continue
-            pt = cv2.perspectiveTransform(np.array([[pt_src]], dtype=np.float32), H)[0,0] if H is not None else pt_src
-            painter.drawEllipse(QtCore.QPointF(pt[0]*scale, pt[1]*scale), 1, 1)
+
+            x, y = pt[0] * scale, pt[1] * scale
+            painter.drawEllipse(QtCore.QPointF(x, y), 1, 1)
 
         painter.end()
-        self.birds_eye_view.setPixmap(bg_scaled)
 
-    # ------------------------------------------------------------------ #
+        self.birds_eye_view.setPixmap(scaled_bg)
+
+
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self.overlay.resize(self.video_label.size())
         self.overlay.raise_()
 
-    # ------------------------------------------------------------------ #
+
     def _handle_error(self, msg):
         QtWidgets.QMessageBox.critical(self, "Stream Error", msg)
         self.stop_stream()
 
-    # ------------------------------------------------------------------ #
+
     def stop_stream(self):
         for attr in ("video_consumer", "detection_thread", "producer"):
             t = getattr(self, attr, None)
@@ -198,7 +216,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
                 setattr(self, attr, None)
         self.close()
 
-    # ------------------------------------------------------------------ #
+
     def closeEvent(self, event):
         if self.location.get("video_path") and not self._report_shown:
             self._report_shown = True

@@ -6,8 +6,8 @@ yolo:
   version: yolov5xu.pt
   imgsz: 640
 deepsort:
-  max_disappeared: 50
+  max_disappeared: 100
   max_distance: 30
   device: "cuda"
-  appearance_weight: 0.7
-  motion_weight: 0.3
+  appearance_weight: 0.5
+  motion_weight: 0.5
