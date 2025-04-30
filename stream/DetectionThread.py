@@ -74,19 +74,16 @@ class DetectionThread(QThread):
             inference_time = t_inf_end - t_inf_start
             signals.detection_logged.emit(inference_time)
 
-            # compute desired emit timestamp (video timestamp + delay)
-            emit_time = display_time + self.delay
-
-            # adjust timestamp for tracker: subtract inference time
-            tracker_timestamp = emit_time - inference_time
 
             # post-processing (tracking + object list)
             t_post_start = time.time()
+
             tracks = self.tracker.update(
                 detections,
                 frame=masked,
-                timestamp=t_post_start
+                timestamp=display_time,
             )
+
             detected_objects = []
             for tid, (centroid, bbox) in tracks.items():
                 x1, y1, x2, y2, cls_idx = bbox[:5]
@@ -94,8 +91,12 @@ class DetectionThread(QThread):
                 detected_objects.append(
                     DetectedObject(tid, obj_type, (x1, y1, x2, y2), centroid)
                 )
+
             t_post_end = time.time()
             signals.postproc_logged.emit(t_post_end - t_post_start)
+
+            # compute desired emit timestamp (video timestamp + delay)
+            emit_time = display_time + self.delay
 
             # schedule emission (non-blocking)
             schedule_delay = max(0, emit_time - time.time())
@@ -105,6 +106,7 @@ class DetectionThread(QThread):
                 schedule_delay,
                 lambda objs=detected_objects, cap=orig_capture: self._emit_detections(objs, cap)
             )
+
             timer.daemon = True
             timer.start()
 
