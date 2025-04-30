@@ -27,6 +27,10 @@ class ConfigManager:
                 "device": "cuda",
                 "appearance_weight": 0.5,
                 "motion_weight": 0.5
+            },
+            "player": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0
             }
         }
         with open(self.config_path, 'w') as file:
@@ -44,6 +48,9 @@ class ConfigManager:
 
     def get_deepsort_config(self):
         return self.config.get("deepsort", {})
+
+    def get_detection_thread_config(self):
+        return self.config.get("detection_thread", {})
 
     def update_config(self, section, parameter, value):
         if section in self.config and parameter in self.config[section]:

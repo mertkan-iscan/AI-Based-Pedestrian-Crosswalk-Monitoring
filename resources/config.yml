@@ -1,13 +1,16 @@
-database:
-  db_file: resources/object_paths.db
-  record_paths: False
 yolo:
   device: cuda
   version: yolov5xu.pt
   imgsz: 640
+database:
+  db_file: resources/object_paths.db
+  record_paths: False
 deepsort:
-  max_disappeared: 100
+  max_disappeared: 60
   max_distance: 30
   device: "cuda"
   appearance_weight: 0.5
   motion_weight: 0.5
+detection_thread:
+  detection_fps: 10
+  delay_seconds: 5.0

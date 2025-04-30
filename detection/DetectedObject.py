@@ -1,24 +1,33 @@
 class DetectedObject:
 
-    CLASS_NAMES = {0: "person", 2: "car", 3: "truck"}
+    CLASS_NAMES = {
+        0: "person",
+        1: "bicycle",
+        2: "car",
+        3: "motorcycle",
+        5: "bus",
+        7: "truck",
+    }
 
-    def __init__(self,
-                 object_id,
-                 object_type,
-                 bbox,
-                 centroid_coordinate,
-                 foot_coordinate,
-                 region):
-
+    def __init__(
+        self,
+        object_id,
+        object_type,
+        bbox,
+        centroid_coordinate,
+        foot_coordinate=None,
+        region="unknown"
+    ):
         self.id = object_id
         self.object_type = object_type
 
         self.bbox = bbox
         self.centroid_coordinate = centroid_coordinate
 
-        #only person class has foot coordinates
+        # only store foot_coordinate for people
         self.foot_coordinate = foot_coordinate if object_type == "person" else None
 
+        # region can be passed in or stays "unknown"
         self.region = region
 
     def update_bbox(self, new_bbox):
@@ -32,10 +41,10 @@ class DetectedObject:
         self.centroid_coordinate = new_centroid_coordinate
 
     def __repr__(self):
-        return (f"DetectedObject(ID={self.id},"
-                f"type={self.object_type}, "
-                f"region={self.region},"
-                f"centroid={self.centroid_coordinate}, "
-                f"path={self.path_coordinates})"
-                f"foot={self.foot_coordinate})"
-                )
+        return (
+            f"DetectedObject(ID={self.id}, "
+            f"type={self.object_type}, "
+            f"region={self.region}, "
+            f"centroid={self.centroid_coordinate}, "
+            f"foot={self.foot_coordinate})"
+        )

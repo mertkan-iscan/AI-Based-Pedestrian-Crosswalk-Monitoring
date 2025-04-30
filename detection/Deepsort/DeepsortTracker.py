@@ -34,10 +34,7 @@ class DeepSortTracker:
             return (transformed[0], transformed[1])
 
     def _compute_cost(self, detections, timestamp: float):
-        """
-        Build the cost matrix using motion + appearance distances.
-        We first predict each track’s new centroid at `timestamp`.
-        """
+
         if len(self.tracks) == 0:
             return np.empty((0, len(detections)))
 

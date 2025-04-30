@@ -1,11 +1,11 @@
 import queue
 import time
+import threading
 import cv2
 import numpy as np
-from PyQt5 import QtCore
+from PyQt5.QtCore import QThread, pyqtSignal
 
 from detection.DetectedObject import DetectedObject
-from stream.FrameProducerThread import wait_until
 from detection.Inference import run_inference, calculate_foot_location
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from region.RegionEditor import RegionEditor
@@ -14,9 +14,9 @@ from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals
 
 
-class DetectionThread(QtCore.QThread):
-    detections_ready = QtCore.pyqtSignal(list, float)
-    error_signal = QtCore.pyqtSignal(str)
+class DetectionThread(QThread):
+    detections_ready = pyqtSignal(list, float)
+    error_signal = pyqtSignal(str)
 
     def __init__(
         self,
@@ -27,9 +27,9 @@ class DetectionThread(QtCore.QThread):
         parent=None,
     ):
         super().__init__(parent)
-        self.queue   = detection_queue
-        self.delay   = float(delay)
-        self._run    = True
+        self.queue = detection_queue
+        self.delay = float(delay)
+        self._run = True
 
         cfg = ConfigManager().get_deepsort_config()
         self.tracker = DeepSortTracker(
@@ -56,56 +56,61 @@ class DetectionThread(QtCore.QThread):
         while self._run:
             try:
                 frame, capture_time, display_time = self.queue.get(timeout=0.05)
+                orig_capture = capture_time
             except queue.Empty:
                 continue
 
+            # queue wait
+            t_dequeue = time.time()
+            signals.queue_wait_logged.emit(t_dequeue - orig_capture)
+
+            # mask blackout
             masked = self._mask_blackout(frame)
 
-            t0 = time.time()
+            # inference timing
+            t_inf_start = time.time()
             detections = run_inference(masked)
-            signals.detection_logged.emit(time.time() - t0)
+            t_inf_end = time.time()
+            inference_time = t_inf_end - t_inf_start
+            signals.detection_logged.emit(inference_time)
 
+            # compute desired emit timestamp (video timestamp + delay)
+            emit_time = display_time + self.delay
+
+            # adjust timestamp for tracker: subtract inference time
+            tracker_timestamp = emit_time - inference_time
+
+            # post-processing (tracking + object list)
+            t_post_start = time.time()
             tracks = self.tracker.update(
                 detections,
                 frame=masked,
-                timestamp=capture_time
+                timestamp=t_post_start
             )
-
             detected_objects = []
             for tid, (centroid, bbox) in tracks.items():
-                if len(bbox) == 4:
-                    x1, y1, x2, y2 = bbox
-                    cls_idx = -1
-                else:
-                    x1, y1, x2, y2, cls_idx = bbox[:5]
-
+                x1, y1, x2, y2, cls_idx = bbox[:5]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
-
-                foot = (
-                    calculate_foot_location((x1, y1, x2, y2))
-                    if obj_type == "person"
-                    else None
-                )
-                loc = foot if foot is not None else centroid
-                regions = self.editor.get_polygons_for_point((int(loc[0]), int(loc[1])))
-                region  = regions[0] if regions else "unknown"
-
                 detected_objects.append(
-                    DetectedObject(
-                        tid,
-                        obj_type,
-                        (x1, y1, x2, y2),
-                        centroid,
-                        foot,
-                        region,
-                    )
+                    DetectedObject(tid, obj_type, (x1, y1, x2, y2), centroid)
                 )
+            t_post_end = time.time()
+            signals.postproc_logged.emit(t_post_end - t_post_start)
 
-            target = display_time + self.delay
-            wait_until(target)
+            # schedule emission (non-blocking)
+            schedule_delay = max(0, emit_time - time.time())
+            signals.scheduling_logged.emit(schedule_delay)
 
-            GlobalState.instance().update(detected_objects, time.time())
-            self.detections_ready.emit(detected_objects, capture_time)
+            timer = threading.Timer(
+                schedule_delay,
+                lambda objs=detected_objects, cap=orig_capture: self._emit_detections(objs, cap)
+            )
+            timer.daemon = True
+            timer.start()
+
+    def _emit_detections(self, detected_objects, capture_time):
+        GlobalState.instance().update(detected_objects, time.time())
+        self.detections_ready.emit(detected_objects, capture_time)
 
     def stop(self):
         self._run = False

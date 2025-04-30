@@ -5,6 +5,7 @@ import cv2
 from PyQt5 import QtCore, QtGui
 
 from stream.FrameProducerThread import wait_until
+from utils.benchmark.MetricSignals import signals
 
 
 class VideoConsumerThread(QtCore.QThread):
@@ -27,20 +28,23 @@ class VideoConsumerThread(QtCore.QThread):
         while self._running:
             try:
                 frame, _, display_time = self.queue.get(timeout=0.05)
+                t_consume_start = time.time()
             except queue.Empty:
                 continue
 
             target = display_time + self.delay
-
-            # drop if we’re already too late
             if time.time() > target:
                 print("Video frame timed out")
                 continue
 
             wait_until(target)
 
+            # measure QImage conversion + emit
             try:
-                self.frame_ready.emit(self._to_qimage(frame))
+                qimg = self._to_qimage(frame)
+                self.frame_ready.emit(qimg)
+                t_consume_end = time.time()
+                signals.consumer_logged.emit(t_consume_end - t_consume_start)
             except Exception as e:
                 self.error_signal.emit(str(e))
 
