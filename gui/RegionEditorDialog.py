@@ -36,66 +36,85 @@ class RegionEditorDialog(QtWidgets.QDialog):
     def initUI(self):
         main_layout = QtWidgets.QHBoxLayout(self)
 
+        # -------- Left: image --------
         left_layout = QtWidgets.QVBoxLayout()
         self.image_label = ClickableLabel()
         self.image_label.setAlignment(QtCore.Qt.AlignCenter)
         self.image_label.setMinimumSize(400, 300)
-        left_layout.addWidget(self.image_label)
         self.image_label.clicked.connect(self.on_click)
-
+        left_layout.addWidget(self.image_label)
         main_layout.addLayout(left_layout, stretch=4)
 
+        # -------- Right: controls --------
         right_layout = QtWidgets.QVBoxLayout()
 
         region_type_group = QtWidgets.QGroupBox("Select Region Type")
         grid = QtWidgets.QGridLayout()
-        types = [
-            ("Detection Blackout", "detection_blackout"),
-            ("Road", "road"),
-            ("Sidewalk", "sidewalk"),
-        ]
+        types = [("Detection Blackout", "detection_blackout"),
+                 ("Road", "road"),
+                 ("Sidewalk", "sidewalk")]
         for i, (txt, t) in enumerate(types):
             btn = QtWidgets.QPushButton(txt)
             btn.clicked.connect(lambda _, r=t: self.set_region_type(r))
             grid.addWidget(btn, i // 2, i % 2)
-
         pack_btn = QtWidgets.QPushButton("Add Crosswalk Pack")
         pack_btn.clicked.connect(self.open_crosswalk_pack_editor)
         grid.addWidget(pack_btn, 1, 1)
-
         region_type_group.setLayout(grid)
         right_layout.addWidget(region_type_group)
 
+        # Polygon editing buttons
         poly_group = QtWidgets.QGroupBox("Polygon Editing")
-        v = QtWidgets.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         finalize_btn = QtWidgets.QPushButton("Finalize Polygon")
         finalize_btn.clicked.connect(self.finalize_polygon)
-        v.addWidget(finalize_btn)
-
+        vbox.addWidget(finalize_btn)
         clear_btn = QtWidgets.QPushButton("Clear Current Points")
         clear_btn.clicked.connect(self.clear_points)
-        v.addWidget(clear_btn)
-
-        delete_btn = QtWidgets.QPushButton("Delete Last Polygon")
-        delete_btn.clicked.connect(self.delete_last_polygon)
-        v.addWidget(delete_btn)
-
-        reset_btn = QtWidgets.QPushButton("Reset All Polygons")
+        vbox.addWidget(clear_btn)
+        reset_btn = QtWidgets.QPushButton("Reset All")
         reset_btn.clicked.connect(self.reset_polygons)
-        v.addWidget(reset_btn)
-
-        poly_group.setLayout(v)
+        vbox.addWidget(reset_btn)
+        poly_group.setLayout(vbox)
         right_layout.addWidget(poly_group)
+
+        # List of existing polygons with delete support
+        self.poly_list = QtWidgets.QListWidget()
+        self.poly_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        right_layout.addWidget(self.poly_list, stretch=1)
+        del_btn = QtWidgets.QPushButton("Delete Selected")
+        del_btn.clicked.connect(self.delete_selected_polygon)
+        right_layout.addWidget(del_btn)
 
         exit_btn = QtWidgets.QPushButton("Exit Editing")
         exit_btn.clicked.connect(self.accept)
         right_layout.addWidget(exit_btn)
         right_layout.addStretch()
 
-        right_widget = QtWidgets.QWidget()
-        right_widget.setLayout(right_layout)
-        right_widget.setFixedWidth(250)
-        main_layout.addWidget(right_widget, stretch=0)
+        container = QtWidgets.QWidget()
+        container.setLayout(right_layout)
+        container.setFixedWidth(250)
+        main_layout.addWidget(container, stretch=0)
+
+    def refresh_poly_list(self):
+        self.poly_list.clear()
+        for poly in self.editor.region_polygons:
+            label = f"{poly['type']} #{poly['id']}"
+            if poly["pack_id"] is not None:
+                label += f"  (pack {poly['pack_id']})"
+            item = QtWidgets.QListWidgetItem(label)
+            item.setData(QtCore.Qt.UserRole, (poly["type"], poly["id"], poly["pack_id"]))
+            self.poly_list.addItem(item)
+
+    def delete_selected_polygon(self):
+        item = self.poly_list.currentItem()
+        if not item:
+            QtWidgets.QMessageBox.information(self, "Info", "No polygon selected.")
+            return
+        rtype, pid, pack_id = item.data(QtCore.Qt.UserRole)
+        if self.editor.delete_polygon(rtype, pid, pack_id):
+            self.editor.save_polygons()
+            self.update_display()
 
     def on_click(self, x, y):
         label_w = self.image_label.width()
@@ -121,6 +140,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         dlg = CrosswalkPackEditorDialog(self.frozen_frame, parent=self, region_editor=self.editor)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             self.update_display()
+        self.refresh_poly_list()
 
     def update_display(self):
         img = self.frozen_frame.copy()
@@ -130,6 +150,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         qimg = QtGui.QImage(img.data, img.shape[1], img.shape[0], img.strides[0], QtGui.QImage.Format_BGR888)
         pix = QtGui.QPixmap.fromImage(qimg)
         self.image_label.setPixmap(pix.scaled(self.image_label.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+        self.refresh_poly_list()
 
     def finalize_polygon(self):
         if len(self.current_points) < 3:
@@ -162,6 +183,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         if json_file and os.path.exists(json_file):
             os.remove(json_file)
         self.update_display()
+        self.refresh_poly_list()
 
     def resizeEvent(self, event):
         self.update_display()
@@ -183,15 +205,39 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         self.editor = region_editor
         self.frozen_frame = frozen_frame.copy()
         self.current_points = []
-        self.polygons = {"crosswalk": [], "car_wait": [], "pedes_wait": []}
+        self.polygons = {
+            "crosswalk": [],
+            "car_wait": [],
+            "pedes_wait": [],
+            "traffic_light": []
+        }
         self.stage_info = [
             ("crosswalk", 1, 1),
             ("car_wait", 1, 2),
             ("pedes_wait", 1, 2),
+            ("traffic_light", 1, 4)
         ]
         self.stage = 0
+
+        self.setWindowTitle("Crosswalk Pack Editing")
+        self.setWindowFlags(
+            QtCore.Qt.Window
+            | QtCore.Qt.WindowSystemMenuHint
+            | QtCore.Qt.WindowMinimizeButtonHint
+            | QtCore.Qt.WindowMaximizeButtonHint
+            | QtCore.Qt.WindowCloseButtonHint
+        )
+        self.setSizeGripEnabled(True)
+
         self.initUI()
+        self.showMaximized()
+
+        # Draw once the layout is fully settled, so the pixmap fits the label size
+        QtCore.QTimer.singleShot(0, self.update_display)
+
+    def resizeEvent(self, event):
         self.update_display()
+        super().resizeEvent(event)
 
     def initUI(self):
         self.setWindowTitle("Add Crosswalk Pack")
@@ -279,6 +325,7 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         if len(self.polygons[typ]) >= minc:
             self.next_btn.setEnabled(True)
         self.update_display()
+        self.refresh_poly_list()
 
     def delete_last_polygon(self):
         typ, minc, maxc = self.stage_info[self.stage]
@@ -293,24 +340,35 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         self.update_display()
 
     def next_stage(self):
+        """
+        Proceed to the next drawing stage or, on the last click,
+        build and store the crosswalk pack.
+        """
         typ, minc, maxc = self.stage_info[self.stage]
         if len(self.polygons[typ]) < minc:
             return
+
+        # ───────── Move to next stage ─────────
         if self.stage < 2:
             self.stage += 1
             self.current_points.clear()
-            typ2, min2, max2 = self.stage_info[self.stage]
-            if len(self.polygons[typ2]) >= min2:
+            next_typ, next_min, next_max = self.stage_info[self.stage]
+            if len(self.polygons[next_typ]) >= next_min:
                 self.next_btn.setEnabled(True)
             if self.stage == 2:
                 self.next_btn.setText("Finish Pack")
             self.update_display()
-        else:
-            ids = [p.get('id', 0) for p in self.editor.region_polygons]
-            new_id = max(ids, default=0) + 1
-            for typ, polys in self.polygons.items():
-                for pts in polys:
-                    poly = {'type': typ, 'points': pts, 'id': new_id}
-                    self.editor.region_polygons.append(poly)
-            self.editor.save_polygons()
-            self.accept()
+            return
+
+        # ───────── Last stage → commit pack ─────────
+        pack = self.editor.new_pack()  # create new CrosswalkPack
+        for rtype, polys in self.polygons.items():
+            for pts in polys:
+                self.editor.add_polygon({
+                    "type": rtype,
+                    "points": pts,
+                    "pack_id": pack.id
+                })
+
+        self.editor.save_polygons()
+        self.accept()

@@ -1,82 +1,47 @@
-from typing import List, Dict
-from detection.DetectedObject import DetectedObject
+import itertools
 
 class CrosswalkPack:
-    def __init__(self, region_polygons: List[Dict]):
-        """
-        region_polygons: your RegionEditor.region_polygons,
-                         each dict has keys "type", "points", and "id".
-        """
-        self.region_polygons = region_polygons
-        self._group = self._group_polygons()
+    _pid_counter = itertools.count(1)          # pack-level ids
+    _poly_counter = itertools.count(1)         # polygon-level ids
 
-        # convenience refs
-        self.crosswalk_polys = self._group.get("crosswalk", [])
-        self.ped_wait_polys = self._group.get("pedes_wait", [])
-        self.car_wait_polys = self._group.get("car_wait", [])
-        self.traffic_light_polys = self._group.get("traffic_light", [])
-        self.selected_traffic_light_id = None
+    def __init__(self):
+        self.id = next(self._pid_counter)
+        self.crosswalk = None                  # {"id": …, "points": […]}
+        self.pedes_wait = []                   # list of dicts
+        self.car_wait = []
+        self.traffic_light = []
 
-        # sanity checks
-        if len(self.crosswalk_polys) != 1:
-            raise ValueError("Expected exactly 1 crosswalk region")
-        if len(self.ped_wait_polys) < 2:
-            raise ValueError("Expected at least 2 pedestrian‑wait regions")
-        if len(self.car_wait_polys) < 1:
-            raise ValueError("Expected at least 1 car‑wait region")
-        if len(self.traffic_light_polys) < 1:
-            raise ValueError("Expected at least 1 traffic‑light region")
+    @staticmethod
+    def _new_polygon(points):
+        return {"id": next(CrosswalkPack._poly_counter), "points": points}
 
-    def _group_polygons(self) -> Dict[str, List[Dict]]:
-        d = {}
-        for poly in self.region_polygons:
-            typ = poly["type"]
-            d.setdefault(typ, []).append(poly)
-        return d
+    def set_crosswalk(self, points):
+        self.crosswalk = self._new_polygon(points)
 
-    def set_traffic_light_id(self, polygon_id: int):
-        """Choose which traffic‑light polygon to use for color detection."""
-        ids = [p["id"] for p in self.traffic_light_polys]
-        if polygon_id not in ids:
-            raise ValueError(f"No traffic_light region with id={polygon_id}")
-        self.selected_traffic_light_id = polygon_id
+    def add_pedes_wait(self, points):
+        self.pedes_wait.append(self._new_polygon(points))
 
-    def get_traffic_light_polygon(self) -> Dict:
-        """Returns the polygon dict for the selected traffic light side."""
-        if self.selected_traffic_light_id is None:
-            raise ValueError("Traffic light not set; call set_traffic_light_id() first")
-        for poly in self.traffic_light_polys:
-            if poly["id"] == self.selected_traffic_light_id:
-                return poly
+    def add_car_wait(self, points):
+        self.car_wait.append(self._new_polygon(points))
 
-    def evaluate(self,
-                 detected_objects: List[DetectedObject],
-                 traffic_light_color: str
-                 ) -> Dict[str, List[int]]:
-        """
-        When light is red, returns:
-          - cars_in_crosswalk:   [IDs]
-          - cars_not_in_car_wait: [IDs]
-          - pedestrians_waiting:  [IDs]
-        """
-        res = {
-            "cars_in_crosswalk": [],
-            "cars_not_in_car_wait": [],
-            "pedestrians_waiting": []
+    def add_traffic_light(self, points):
+        self.traffic_light.append(self._new_polygon(points))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "crosswalk": self.crosswalk,
+            "pedes_wait": self.pedes_wait,
+            "car_wait": self.car_wait,
+            "traffic_light": self.traffic_light,
         }
-        if traffic_light_color.lower() != "red":
-            return res
 
-        for obj in detected_objects:
-            # treat cars and trucks both as vehicles
-            if obj.object_type in ("car", "truck"):
-                if obj.region == "crosswalk":
-                    res["cars_in_crosswalk"].append(obj.id)
-                elif obj.region != "car_wait":
-                    res["cars_not_in_car_wait"].append(obj.id)
-
-            elif obj.object_type == "person":
-                if obj.region == "pedes_wait":
-                    res["pedestrians_waiting"].append(obj.id)
-
-        return res
+    @classmethod
+    def from_dict(cls, data):
+        obj = cls.__new__(cls)
+        obj.id = data["id"]
+        obj.crosswalk = data["crosswalk"]
+        obj.pedes_wait = data["pedes_wait"]
+        obj.car_wait = data["car_wait"]
+        obj.traffic_light = data["traffic_light"]
+        return obj
