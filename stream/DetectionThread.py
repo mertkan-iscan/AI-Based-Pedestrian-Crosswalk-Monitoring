@@ -99,7 +99,7 @@ class DetectionThread(QThread):
             emit_time = display_time + self.delay
 
             # schedule emission (non-blocking)
-            schedule_delay = max(0, emit_time - time.time())
+            schedule_delay = emit_time - time.time()
             signals.scheduling_logged.emit(schedule_delay)
 
             timer = threading.Timer(
