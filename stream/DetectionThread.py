@@ -6,7 +6,7 @@ import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from detection.DetectedObject import DetectedObject
-from detection.Inference import run_inference, calculate_foot_location
+from detection.Inference import run_inference
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from region.RegionEditor import RegionEditor
 from detection.GlobalState import GlobalState

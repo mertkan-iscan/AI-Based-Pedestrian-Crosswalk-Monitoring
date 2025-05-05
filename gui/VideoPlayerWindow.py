@@ -15,7 +15,6 @@ from utils.benchmark.MetricReporter import MetricReporter
 from utils.benchmark.MetricSignals import signals
 from utils.benchmark.ReportManager import ReportManager
 
-
 class ScalableLabel(QtWidgets.QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,124 +26,86 @@ class ScalableLabel(QtWidgets.QLabel):
     def minimumSizeHint(self):
         return QtCore.QSize(0, 0)
 
-
 class VideoPlayerWindow(QtWidgets.QMainWindow):
     def __init__(self, location, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Live Stream – {location['name']}")
-        self.location             = location
-
-
-        self.current_pixmap       = None
-        self.original_frame_size  = (1, 1)
-        self.scaled_pixmap_size   = (1, 1)
-        self._report_shown        = False
-
-        # load player settings
+        self.location = location
+        self.current_pixmap = None
+        self.original_frame_size = (1, 1)
+        self.scaled_pixmap_size = (1, 1)
+        self._report_shown = False
         cfg = ConfigManager().get_detection_thread_config()
         self.detection_fps = cfg.get("detection_fps", 10)
         self.delay_seconds = cfg.get("delay_seconds", 5.0)
-
-
         birds_eye_path = self.location.get("birds_eye_image")
         self.birds_eye_pixmap = QtGui.QPixmap(birds_eye_path) if birds_eye_path and os.path.exists(birds_eye_path) else None
-
         self._build_ui()
-
-        # Metrics reporter and UI signal connections
         self._metric_reporter = MetricReporter()
         signals.frame_logged.connect(self._metric_reporter.on_frame)
         signals.detection_logged.connect(self._metric_reporter.on_detection)
         signals.inspection_logged.connect(self._metric_reporter.on_inspection)
         signals.delay_logged.connect(self._metric_reporter.on_delay)
-
-        # Connect metric signals to UI update slots
         signals.queue_wait_logged.connect(self._update_queue_wait_label)
         signals.detection_logged.connect(self._update_inference_label)
         signals.postproc_logged.connect(self._update_postproc_label)
         signals.scheduling_logged.connect(self._update_scheduling_label)
         signals.total_latency_logged.connect(self._update_total_latency_label)
         signals.consumer_logged.connect(self._update_consumer_label)
-
-        # Queues and threading
-        self.video_queue     = queue.Queue(maxsize=0)
-        self.detection_queue = queue.Queue(maxsize=0)
-        self.delay_seconds   = 5
-
+        self.video_queue = queue.Queue()
+        self.detection_queue = queue.Queue()
         self._start_threads()
         self.showMaximized()
 
     def _build_ui(self):
         central = QtWidgets.QWidget(self)
         self.setCentralWidget(central)
-        layout  = QtWidgets.QHBoxLayout(central)
-
-        # Video + overlay
+        layout = QtWidgets.QHBoxLayout(central)
         video_container = QtWidgets.QWidget()
-        self.stack      = QtWidgets.QStackedLayout(video_container)
+        self.stack = QtWidgets.QStackedLayout(video_container)
         self.stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
-
         self.video_label = ScalableLabel()
         self.video_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.video_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.stack.addWidget(self.video_label)
-
         self.overlay = OverlayWidget(video_container)
         if self.location.get("homography_matrix") is not None:
             H_inv = np.linalg.inv(np.array(self.location["homography_matrix"]))
             self.overlay.set_inverse_homography(H_inv)
         self.stack.addWidget(self.overlay)
-        layout.addWidget(video_container, stretch=1)
-
-        # Side panel
-        side            = QtWidgets.QWidget()
+        layout.addWidget(video_container, 1)
+        side = QtWidgets.QWidget()
         side.setFixedWidth(300)
-        side_layout     = QtWidgets.QVBoxLayout(side)
-
+        side_layout = QtWidgets.QVBoxLayout(side)
         self.objects_list = QtWidgets.QListWidget()
         side_layout.addWidget(self.objects_list)
-
-        # Delay label
         self.latency_label = QtWidgets.QLabel("Delay: 0.00 s")
         side_layout.addWidget(self.latency_label)
-
-        # New metric labels
-        self.queue_wait_label     = QtWidgets.QLabel("Queue wait: 0.00 s")
+        self.queue_wait_label = QtWidgets.QLabel("Queue wait: 0.00 s")
         side_layout.addWidget(self.queue_wait_label)
-        self.inference_label      = QtWidgets.QLabel("Inference: 0.00 s")
+        self.inference_label = QtWidgets.QLabel("Inference: 0.00 s")
         side_layout.addWidget(self.inference_label)
-        self.postproc_label       = QtWidgets.QLabel("Post-process: 0.00 s")
+        self.postproc_label = QtWidgets.QLabel("Post-process: 0.00 s")
         side_layout.addWidget(self.postproc_label)
-        self.scheduling_label     = QtWidgets.QLabel("Scheduling delay: 0.00 s")
+        self.scheduling_label = QtWidgets.QLabel("Scheduling delay: 0.00 s")
         side_layout.addWidget(self.scheduling_label)
-        self.total_latency_label  = QtWidgets.QLabel("Total latency: 0.00 s")
+        self.total_latency_label = QtWidgets.QLabel("Total latency: 0.00 s")
         side_layout.addWidget(self.total_latency_label)
-        self.consumer_label       = QtWidgets.QLabel("Consumer latency: 0.00 s")
+        self.consumer_label = QtWidgets.QLabel("Consumer latency: 0.00 s")
         side_layout.addWidget(self.consumer_label)
-
         stop_btn = QtWidgets.QPushButton("Stop Stream")
         stop_btn.clicked.connect(self.stop_stream)
         side_layout.addWidget(stop_btn)
-
         side_layout.addWidget(QtWidgets.QLabel("Bird's Eye View", alignment=QtCore.Qt.AlignCenter))
         self.birds_eye_view = QtWidgets.QLabel(alignment=QtCore.Qt.AlignCenter)
-        self.birds_eye_view.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding,
-            QtWidgets.QSizePolicy.Fixed
-        )
+        self.birds_eye_view.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         if self.birds_eye_pixmap:
-            self.birds_eye_view.setPixmap(
-                self.birds_eye_pixmap.scaled(
-                    self.birds_eye_view.size(),
-                    QtCore.Qt.KeepAspectRatio,
-                    QtCore.Qt.SmoothTransformation
-                )
-            )
+            pix = self.birds_eye_pixmap.scaledToWidth(280, QtCore.Qt.SmoothTransformation)
+            self.birds_eye_view.setPixmap(pix)
+            self.birds_eye_view.setFixedHeight(pix.height())
         else:
             self.birds_eye_view.setText("No Bird's-Eye Image")
         side_layout.addWidget(self.birds_eye_view)
-
-        layout.addWidget(side, stretch=0)
+        layout.addWidget(side, 0)
 
     def _update_queue_wait_label(self, dt):
         self.queue_wait_label.setText(f"Queue wait: {dt:.2f} s")
@@ -166,113 +127,69 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
     def _start_threads(self):
         source = self.location.get("video_path") or self.location["stream_url"]
-
-        # pass configured fps and delay
-        self.producer = FrameProducerThread(
-            source,
-            self.video_queue,
-            self.detection_queue,
-            detection_fps=self.detection_fps
-        )
+        self.producer = FrameProducerThread(source, self.video_queue, self.detection_queue, detection_fps=self.detection_fps)
         self.producer.error_signal.connect(self._handle_error)
         self.producer.start()
-
-        self.video_consumer = VideoConsumerThread(
-            self.video_queue,
-            delay=self.delay_seconds
-        )
+        self.video_consumer = VideoConsumerThread(self.video_queue, delay=self.delay_seconds)
         self.video_consumer.frame_ready.connect(self._update_frame)
         self.video_consumer.error_signal.connect(self._handle_error)
         self.video_consumer.start()
-
         homography = None
         if self.location.get("homography_matrix") is not None:
             homography = np.array(self.location["homography_matrix"])
-
-        self.detection_thread = DetectionThread(
-            self.location["polygons_file"],
-            self.detection_queue,
-            homography_matrix=homography,
-            delay=self.delay_seconds
-        )
+        self.detection_thread = DetectionThread(self.location["polygons_file"], self.detection_queue, homography_matrix=homography, delay=self.delay_seconds)
         self.detection_thread.detections_ready.connect(self._update_detections)
         self.detection_thread.error_signal.connect(self._handle_error)
         self.detection_thread.start()
 
     def _update_frame(self, q_img):
         signals.frame_logged.emit()
-
         pixmap = QtGui.QPixmap.fromImage(q_img)
         self.current_pixmap = pixmap
-
         scaled = pixmap.scaled(self.video_label.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         self.video_label.setPixmap(scaled)
-
-        self.scaled_pixmap_size  = (scaled.width(), scaled.height())
+        self.scaled_pixmap_size = (scaled.width(), scaled.height())
         self.original_frame_size = (pixmap.width(), pixmap.height())
-
         self.overlay.resize(self.video_label.size())
         self.overlay.update()
 
     def _update_detections(self, *_):
         objects, capture_time = GlobalState.instance().get()
-
         if self.original_frame_size == (1, 1):
             return
-
         self.objects_list.clear()
         for obj in objects:
             self.objects_list.addItem(f"ID:{obj.id}  {obj.object_type}  {obj.region}")
-
         self.overlay.set_detections(objects, self.original_frame_size, self.scaled_pixmap_size)
         self.overlay.raise_()
-
-        # Update display delay label
         delay = time.time() - capture_time
         self.latency_label.setText(f"Delay: {delay:.2f} s")
         signals.delay_logged.emit(delay)
-
         self._update_birds_eye(objects)
 
     def _update_birds_eye(self, objects):
         if not self.birds_eye_pixmap:
             return
-
         orig = self.birds_eye_pixmap
         label_width = self.birds_eye_view.width()
-        scaled_bg = orig.scaled(
-            label_width,
-            orig.height(),
-            QtCore.Qt.KeepAspectRatio,
-            QtCore.Qt.SmoothTransformation
-        )
-
+        scaled_bg = orig.scaled(label_width, orig.height(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         scale_x = scaled_bg.width() / orig.width()
         scale_y = scaled_bg.height() / orig.height()
-
         painter = QtGui.QPainter(scaled_bg)
         painter.setPen(QtGui.QPen(QtCore.Qt.red, 6))
-
-        H = (np.array(self.location["homography_matrix"])
-             if self.location.get("homography_matrix") is not None
-             else None)
-
+        H = (np.array(self.location["homography_matrix"]) if self.location.get("homography_matrix") is not None else None)
         for obj in objects:
             if getattr(obj, "foot_coordinate", None) is not None:
                 pt = obj.foot_coordinate
                 if H is not None:
-                    pt = cv2.perspectiveTransform(
-                        np.array([[pt]], dtype=np.float32), H
-                    )[0, 0]
+                    pt = cv2.perspectiveTransform(np.array([[pt]], dtype=np.float32), H)[0, 0]
             elif getattr(obj, "centroid_coordinate", None) is not None:
                 pt = obj.centroid_coordinate
             else:
                 continue
-
             x = pt[0] * scale_x
             y = pt[1] * scale_y
             painter.drawEllipse(QtCore.QPointF(x, y), 1, 1)
-
         painter.end()
         self.birds_eye_view.setPixmap(scaled_bg)
 
@@ -292,5 +209,5 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         if self.location.get("video_path") and not self._report_shown:
             self._report_shown = True
             report = ReportManager(self.location["video_path"]).save_per_second_report()
-            QtWidgets.QMessageBox.information(self, "Performance Report", f"Per-second report saved to:\n{report}")
+            QtWidgets.QMessageBox.information(self, "Performance Report", f"Per-second report saved to:{report}")
         event.accept()

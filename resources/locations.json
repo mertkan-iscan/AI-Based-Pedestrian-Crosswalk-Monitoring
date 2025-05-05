@@ -30,11 +30,11 @@
                 1.0
             ]
         ],
-        "birds_eye_image": "C:/Users/merti/Desktop/satellite_view.jpg"
+        "birds_eye_image": "resources\\satellite_images\\satellite_view.jpg"
     },
     {
         "name": "zafer video 1",
-        "video_path": "D:/CSE_492_project/konya_live_videos/pedestrian_cross_2_1.mp4",
+        "video_path": "D:/CSE_492_project/konya_live_videos/zafer_cloudy_morning.mp4",
         "polygons_file": "resources\\location_regions\\polygons_a45a793188794bcfb1e87a103addbb02.json"
     },
     {
@@ -46,7 +46,7 @@
         "name": "yeni meral video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/sunny_noon_cropped.mp4",
         "polygons_file": "resources\\location_regions\\polygons_52a90f0ae8cb40d88bb1c1030d7e7bbf.json",
-        "birds_eye_image": "C:/Users/merti/Desktop/yeni_meral_bird.png",
+        "birds_eye_image": "resources\\satellite_images\\yeni_meral_bird.png",
         "homography_matrix": [
             [
                 -0.9587665396597553,
@@ -61,6 +61,29 @@
             [
                 -0.0006383959339724221,
                 -0.012308442493684261,
+                1.0
+            ]
+        ]
+    },
+    {
+        "name": "tram video 1",
+        "video_path": "D:/CSE_492_project/konya_live_videos/tramvay_noon.mp4",
+        "polygons_file": "resources\\location_regions\\polygons_628311b7864643818d631b7e2c3ad549.json",
+        "birds_eye_image": "resources\\satellite_images\\Screenshot 2025-05-04 182221.png",
+        "homography_matrix": [
+            [
+                -0.04591279586124449,
+                2.454410321921924,
+                -205.2493133429972
+            ],
+            [
+                -0.5763004575341332,
+                2.471713148933037,
+                328.2111741931333
+            ],
+            [
+                -0.0008694753710150477,
+                0.005430220929595602,
                 1.0
             ]
         ]
