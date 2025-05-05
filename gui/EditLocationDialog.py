@@ -1,142 +1,115 @@
 import os
 import shutil
-
-from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QFileDialog, QDialog
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QFileDialog
 
 from gui.CropDialog import CropDialog
+from region import LocationManager
 from stream.FrameExtractor import FrameExtractor
 from gui.HomographySetterDialog import HomographySetterDialog
-
 
 class EditLocationDialog(QtWidgets.QDialog):
     def __init__(self, location, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Location")
+        self.resize(300, 420)
+        self._original_location = location
         self.location = location.copy()
-        self.homography_matrix = self.location.get("homography_matrix", None)
-        self.satellite_image = self.location.get("birds_eye_image", None)
-        self._build_ui()
+        self.homography_matrix = self.location.get("homography_matrix")
+        self.bird_image_path = self.location.get("birds_eye_image")
+        self.setupUI()
 
-    def _build_ui(self):
-        layout = QtWidgets.QFormLayout(self)
+    def setupUI(self):
+        layout = QtWidgets.QVBoxLayout(self)
 
-        # Name field
+        name_label = QtWidgets.QLabel("Location Name:")
         self.name_edit = QtWidgets.QLineEdit(self.location.get("name", ""))
-        layout.addRow("Name:", self.name_edit)
+        layout.addWidget(name_label)
+        layout.addWidget(self.name_edit)
 
-        # Source field: stream or video
+        type_group = QtWidgets.QGroupBox("Source Type:")
+        type_layout = QtWidgets.QHBoxLayout(type_group)
+        self.stream_radio = QtWidgets.QRadioButton("Live Stream")
+        self.video_radio = QtWidgets.QRadioButton("Video File")
         if self.location.get("video_path"):
-            self.location_type = "video"
-            self.edit_field = QtWidgets.QLineEdit(self.location["video_path"])
-            browse_src = QtWidgets.QPushButton("Browse")
-            browse_src.clicked.connect(self._browse_video_file)
-            src_layout = QtWidgets.QHBoxLayout()
-            src_layout.addWidget(self.edit_field)
-            src_layout.addWidget(browse_src)
-            layout.addRow("Video File:", src_layout)
+            self.video_radio.setChecked(True)
         else:
-            self.location_type = "stream"
-            self.edit_field = QtWidgets.QLineEdit(self.location.get("stream_url", ""))
-            layout.addRow("Stream URL:", self.edit_field)
+            self.stream_radio.setChecked(True)
+        type_layout.addWidget(self.stream_radio)
+        type_layout.addWidget(self.video_radio)
+        layout.addWidget(type_group)
 
-        # Bird’s-eye upload
+        self.stream_widget = QtWidgets.QWidget()
+        s_layout = QtWidgets.QVBoxLayout(self.stream_widget)
+        s_label = QtWidgets.QLabel("Stream URL:")
+        self.stream_edit = QtWidgets.QLineEdit(self.location.get("stream_url", ""))
+        s_layout.addWidget(s_label)
+        s_layout.addWidget(self.stream_edit)
+        layout.addWidget(self.stream_widget)
+
+        self.video_widget = QtWidgets.QWidget()
+        v_layout = QtWidgets.QVBoxLayout(self.video_widget)
+        v_label = QtWidgets.QLabel("Video File:")
+        self.video_path_edit = QtWidgets.QLineEdit(self.location.get("video_path", ""))
+        browse_video_btn = QtWidgets.QPushButton("Browse Video")
+        browse_video_btn.clicked.connect(self.browseVideoFile)
+        file_layout = QtWidgets.QHBoxLayout()
+        file_layout.addWidget(self.video_path_edit)
+        file_layout.addWidget(browse_video_btn)
+        v_layout.addWidget(v_label)
+        v_layout.addLayout(file_layout)
+        layout.addWidget(self.video_widget)
+
+        self.stream_radio.toggled.connect(self.toggle_source_fields)
+        self.video_radio.toggled.connect(self.toggle_source_fields)
+        self.toggle_source_fields()
+
         upload_btn = QtWidgets.QPushButton("Upload Bird’s-Eye Image")
-        upload_btn.clicked.connect(self._upload_bird_image)
-        self.bird_status = QtWidgets.QLabel(
-            f"Selected: {self.satellite_image}" if self.satellite_image else "No image selected"
-        )
-        layout.addRow(upload_btn, self.bird_status)
+        upload_btn.clicked.connect(self.browseSatelliteImage)
+        self.birdImageLabel = QtWidgets.QLabel()
+        self.birdImageLabel.setFixedSize(150, 150)
+        self.birdImageLabel.setAlignment(QtCore.Qt.AlignCenter)
+        if self.bird_image_path:
+            pix = QtGui.QPixmap(self.bird_image_path)
+            self.birdImageLabel.setPixmap(pix)
+        layout.addWidget(upload_btn)
+        layout.addWidget(self.birdImageLabel)
 
-        # Homography
         homo_btn = QtWidgets.QPushButton("Set Homography")
         homo_btn.clicked.connect(self.setHomography)
         self.homo_status = QtWidgets.QLabel(
             "Homography set." if self.homography_matrix else "Homography not set."
         )
-        layout.addRow(homo_btn, self.homo_status)
+        layout.addWidget(homo_btn)
+        layout.addWidget(self.homo_status)
 
-        # Dialog buttons
         btns = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
         )
-        btns.accepted.connect(self.accept)
+        btns.accepted.connect(self._on_ok)
         btns.rejected.connect(self.reject)
-        layout.addRow(btns)
+        layout.addWidget(btns)
 
-    def _browse_video_file(self):
-        file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            "Select Video File",
-            "",
-            "Video Files (*.mp4 *.avi *.mkv *.mov *.flv);;All Files (*)"
+    def toggle_source_fields(self):
+        is_stream = self.stream_radio.isChecked()
+        self.stream_widget.setVisible(is_stream)
+        self.video_widget.setVisible(not is_stream)
+
+    def browseVideoFile(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Video File", "", "Video Files (*.mp4 *.avi *.mkv *.mov)"
         )
-        if file_name:
-            self.edit_field.setText(file_name)
+        if path:
+            self.video_path_edit.setText(path)
 
-    def _upload_bird_image(self):
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            "Select Bird’s-Eye Image",
-            "",
-            "Images (*.png *.jpg *.jpeg *.bmp)"
+    def browseSatelliteImage(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Satellite Image", "", "Images (*.png *.jpg)"
         )
-        if not file_path:
-            return
-        dest_dir = os.path.join("resources", "satellite_images")
-        os.makedirs(dest_dir, exist_ok=True)
-        fname = os.path.basename(file_path)
-        dest_path = os.path.join(dest_dir, fname)
-        shutil.copy(file_path, dest_path)
-        rel_path = os.path.relpath(dest_path, os.getcwd())
-        self.satellite_image = rel_path
-        self.bird_status.setText(f"Selected: {rel_path}")
-
-    def setHomography(self):
-        if not self.satellite_image:
-            QtWidgets.QMessageBox.critical(self, "Error", "Upload a bird’s-eye image first.")
-            return
-        if self.location.get("video_path"):
-            frame = FrameExtractor.get_single_frame_file(self.location["video_path"])
-        else:
-            frame = FrameExtractor.get_single_frame(self.location["stream_url"])
-        if frame is None:
-            QtWidgets.QMessageBox.critical(self, "Error", "Cannot grab camera frame.")
-            return
-        dlg = HomographySetterDialog(frame, self.satellite_image, self)
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.homography_matrix = dlg.get_homography()
-            self.homo_status.setText("Homography set.")
-        else:
-            self.homo_status.setText("Homography not set.")
-
-    def get_updated_location(self):
-        loc = self.location.copy()
-        loc["name"] = self.name_edit.text().strip()
-        if getattr(self, "location_type", "stream") == "video":
-            loc["video_path"] = self.edit_field.text().strip()
-            loc.pop("stream_url", None)
-        else:
-            loc["stream_url"] = self.edit_field.text().strip()
-            loc.pop("video_path", None)
-        if self.satellite_image:
-            loc["birds_eye_image"] = self.satellite_image
-        else:
-            loc.pop("birds_eye_image", None)
-        if self.homography_matrix is not None:
-            loc["homography_matrix"] = (
-                self.homography_matrix.tolist()
-                if hasattr(self.homography_matrix, "tolist")
-                else self.homography_matrix
-            )
-        return loc
-
-    def changeSatelliteImage(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Satellite Image", "", "Images (*.png *.jpg)")
         if not path:
             return
         dlg = CropDialog(path, self)
-        if dlg.exec_() != QDialog.Accepted:
+        if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
         cropped = dlg.getCropped()
         name, ext = os.path.splitext(os.path.basename(path))
@@ -144,5 +117,43 @@ class EditLocationDialog(QtWidgets.QDialog):
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, f"{name}_cropped{ext}")
         cropped.save(save_path)
-        self.selected_location["bird_image"] = save_path
-        self.birdImagePreview.setPixmap(cropped)
+        self.bird_image_path = save_path
+        self.birdImageLabel.setPixmap(cropped)
+
+    def setHomography(self):
+        if not self.bird_image_path:
+            QtWidgets.QMessageBox.critical(self, "Error", "Upload a bird’s-eye image first.")
+            return
+        if self.video_radio.isChecked():
+            frame = FrameExtractor.get_single_frame_file(self.video_path_edit.text().strip())
+        else:
+            frame = FrameExtractor.get_single_frame(self.stream_edit.text().strip())
+        if frame is None:
+            QtWidgets.QMessageBox.critical(self, "Error", "Cannot grab camera frame.")
+            return
+        dlg = HomographySetterDialog(frame, self.bird_image_path, self)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.homography_matrix = dlg.get_homography()
+            self.homo_status.setText("Homography set.")
+        else:
+            self.homo_status.setText("Homography not set.")
+
+    def _on_ok(self):
+        self._original_location["name"] = self.name_edit.text().strip()
+        if self.video_radio.isChecked():
+            self._original_location["video_path"] = self.video_path_edit.text().strip()
+            self._original_location.pop("stream_url", None)
+        else:
+            self._original_location["stream_url"] = self.stream_edit.text().strip()
+            self._original_location.pop("video_path", None)
+        if hasattr(self, 'bird_image_path') and self.bird_image_path:
+            self._original_location["birds_eye_image"] = self.bird_image_path
+        if self.homography_matrix is not None:
+            if hasattr(self.homography_matrix, "tolist"):
+                self._original_location["homography_matrix"] = self.homography_matrix.tolist()
+            else:
+                self._original_location["homography_matrix"] = self.homography_matrix
+        self.accept()
+
+    def get_updated_location(self):
+        return self._original_location

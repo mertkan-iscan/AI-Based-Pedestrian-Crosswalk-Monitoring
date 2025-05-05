@@ -87,5 +87,11 @@
                 1.0
             ]
         ]
+    },
+    {
+        "name": "mevlana rainy 1",
+        "polygons_file": "resources\\location_regions\\polygons_c0ad6a4e7a47436b913df503eda423d7.json",
+        "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4",
+        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg"
     }
 ]
