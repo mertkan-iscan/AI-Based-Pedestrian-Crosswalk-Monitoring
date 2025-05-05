@@ -15,16 +15,18 @@ from utils.benchmark.MetricReporter  import MetricReporter
 import qdarkstyle
 
 def main():
-    db = DBManager()
-    pool_size = 4
 
-    task_processor_thread = threading.Thread(
-        target=dynamic_task_processor, args=(db, pool_size)
-    )
+    # db = DBManager()
+    # pool_size = 4
+    #
+    # task_processor_thread = threading.Thread(
+    #     target=dynamic_task_processor, args=(db, pool_size)
+    # )
+    #
+    # task_processor_thread.daemon = True
+    # task_processor_thread.start()
+    # print("path DB recorder started")
 
-    task_processor_thread.daemon = True
-    task_processor_thread.start()
-    print("path DB recorder started")
 
     metrics_thread = QThread()
     reporter = MetricReporter()
@@ -52,11 +54,11 @@ def main():
 
     def shutdown():
 
-        for _ in range(pool_size):
-            task_queue.put(None)
-
-        task_processor_thread.join()
-        db.close()
+        # for _ in range(pool_size):
+        #     task_queue.put(None)
+        #
+        # task_processor_thread.join()
+        # db.close()
 
         metrics_thread.quit()
         metrics_thread.wait()

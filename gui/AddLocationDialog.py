@@ -60,6 +60,7 @@ class AddLocationDialog(QtWidgets.QDialog):
         self.birdImageLabel = QtWidgets.QLabel()
         self.birdImageLabel.setFixedSize(150, 150)
         self.birdImageLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.birdImageLabel.setScaledContents(True)
         layout.addWidget(upload_btn)
         layout.addWidget(self.birdImageLabel)
 
