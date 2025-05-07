@@ -43,13 +43,6 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
 
-    # Set application icon
-    icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'pedestrian_cross_icon.ico')
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QtGui.QIcon(icon_path))
-    else:
-        print("Icon not found at:", icon_path)
-
     window = MainWindow()
 
     def shutdown():

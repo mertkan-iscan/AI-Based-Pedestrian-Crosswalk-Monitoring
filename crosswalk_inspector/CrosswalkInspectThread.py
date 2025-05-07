@@ -1,5 +1,3 @@
-# stream/CrosswalkInspectThread.py
-
 import os
 import queue
 from concurrent.futures import ThreadPoolExecutor

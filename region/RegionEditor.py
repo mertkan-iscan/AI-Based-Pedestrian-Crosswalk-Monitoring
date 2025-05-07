@@ -170,19 +170,18 @@ class RegionEditor:
         return flattened
 
     def add_polygon(self, poly):
-
         rtype = poly.get("type")
         points = poly.get("points")
         if rtype is None or points is None:
             raise ValueError("polygon dict needs 'type' and 'points'")
 
-        # -------- Crosswalk-pack members --------
+        # Crosswalk-pack members
         if rtype in {"crosswalk", "pedes_wait", "car_wait", "traffic_light"}:
             pack_id = poly.get("pack_id")
             pack = None
             if pack_id is not None:
                 pack = next((p for p in self.crosswalk_packs if p.id == pack_id), None)
-            if pack is None:                                      # new or unknown id
+            if pack is None:
                 pack = self.new_pack()
 
             # Create polygon with a fresh id
@@ -195,12 +194,14 @@ class RegionEditor:
             elif rtype == "car_wait":
                 pack.car_wait.append(new_poly)
             else:  # "traffic_light"
+                # attach the subtype
+                new_poly["light_type"] = poly.get("light_type", "vehicle")
                 pack.traffic_light.append(new_poly)
 
             poly.update({"id": new_poly["id"], "pack_id": pack.id})
             return new_poly["id"]
 
-        # -------- Stand-alone regions --------
+        # Stand-alone regions (unchanged)…
         if rtype in self.other_regions:
             new_id = len(self.other_regions[rtype]) + 1
             self.other_regions[rtype].append({"id": new_id, "points": points})

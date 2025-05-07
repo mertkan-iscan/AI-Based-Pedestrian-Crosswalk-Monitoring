@@ -120,7 +120,7 @@
     },
     {
         "name": "axssetr",
-        "polygons_file": "resources\\location_regions\\axssetr.json",
+        "polygons_file": "resources\\location_regions\\region_polygons_axssetr.json",
         "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4"
     }
 ]
