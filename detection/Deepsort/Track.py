@@ -19,10 +19,12 @@ class Track:
         self.appearance_feature = feature if feature is not None else None
 
     def predict(self, timestamp: float = None):
-        if self.last_timestamp is None or timestamp is None:
-            dt = 1.0
-        else:
+
+        if timestamp is not None and self.last_timestamp is not None:
             dt = timestamp - self.last_timestamp
+        else:
+            dt = 1.0 / 20.0
+
         state = self.kalman_filter.predict(dt)
         self.centroid = (int(state[0, 0]), int(state[1, 0]))
         self.last_timestamp = timestamp or self.last_timestamp

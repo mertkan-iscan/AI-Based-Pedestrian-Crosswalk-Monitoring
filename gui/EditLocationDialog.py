@@ -1,11 +1,11 @@
 import os
-import shutil
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from region import LocationManager
 from stream.FrameExtractor import FrameExtractor
 from gui.CropDialog import CropDialog
 from gui.HomographySetterDialog import HomographySetterDialog
+
 
 class EditLocationDialog(QtWidgets.QDialog):
     def __init__(self, location, parent=None):
@@ -150,24 +150,34 @@ class EditLocationDialog(QtWidgets.QDialog):
         if not name:
             QtWidgets.QMessageBox.warning(self, "Validation", "Name is required.")
             return
+
         # Build updated dict
-        self._updated = self._updated.copy()
-        self._updated["name"] = name
+        updated = self._original.copy()
+        updated["name"] = name
         if self.video_radio.isChecked():
-            self._updated["video_path"] = self.video_path_edit.text().strip()
-            self._updated.pop("stream_url", None)
+            updated["video_path"] = self.video_path_edit.text().strip()
+            updated.pop("stream_url", None)
         else:
-            self._updated["stream_url"] = self.stream_edit.text().strip()
-            self._updated.pop("video_path", None)
-        if hasattr(self, "bird_image_path"):
-            self._updated["birds_eye_image"] = self.bird_image_path
+            updated["stream_url"] = self.stream_edit.text().strip()
+            updated.pop("video_path", None)
+        if hasattr(self, "bird_image_path") and self.bird_image_path:
+            updated["birds_eye_image"] = self.bird_image_path
         if self.homography_matrix is not None:
-            self._updated["homography_matrix"] = (
+            updated["homography_matrix"] = (
                 self.homography_matrix.tolist()
                 if hasattr(self.homography_matrix, "tolist")
                 else self.homography_matrix
             )
-        # Finish
+
+        # Attempt to update via LocationManager (will enforce uniqueness)
+        try:
+            LocationManager.update_location(self._original, updated)
+        except ValueError as e:
+            QtWidgets.QMessageBox.warning(self, "Validation", str(e))
+            return
+
+        # On success, store updated and close
+        self._updated = updated
         self.accept()
 
     def get_updated_location(self):

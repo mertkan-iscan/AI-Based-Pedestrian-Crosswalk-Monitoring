@@ -1,6 +1,4 @@
 import os
-import uuid
-import json
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from gui.CropDialog import CropDialog
@@ -20,11 +18,12 @@ class AddLocationDialog(QtWidgets.QDialog):
     def setupUI(self):
         layout = QtWidgets.QVBoxLayout(self)
 
-        name_label = QtWidgets.QLabel("Location Name:")
+        # Location name
+        layout.addWidget(QtWidgets.QLabel("Location Name:"))
         self.name_edit = QtWidgets.QLineEdit()
-        layout.addWidget(name_label)
         layout.addWidget(self.name_edit)
 
+        # Source type selection
         type_group = QtWidgets.QGroupBox("Source Type:")
         type_layout = QtWidgets.QHBoxLayout(type_group)
         self.stream_radio = QtWidgets.QRadioButton("Live Stream")
@@ -34,27 +33,28 @@ class AddLocationDialog(QtWidgets.QDialog):
         type_layout.addWidget(self.video_radio)
         layout.addWidget(type_group)
 
+        # Stream URL field
         self.stream_widget = QtWidgets.QWidget()
         stream_layout = QtWidgets.QVBoxLayout(self.stream_widget)
-        stream_label = QtWidgets.QLabel("Stream URL:")
+        stream_layout.addWidget(QtWidgets.QLabel("Stream URL:"))
         self.stream_edit = QtWidgets.QLineEdit()
-        stream_layout.addWidget(stream_label)
         stream_layout.addWidget(self.stream_edit)
         layout.addWidget(self.stream_widget)
 
+        # Video file field
         self.video_widget = QtWidgets.QWidget()
         video_layout = QtWidgets.QVBoxLayout(self.video_widget)
-        video_label = QtWidgets.QLabel("Video File:")
+        video_layout.addWidget(QtWidgets.QLabel("Video File:"))
         self.video_path_edit = QtWidgets.QLineEdit()
         browse_video_btn = QtWidgets.QPushButton("Browse")
         browse_video_btn.clicked.connect(self.browseVideoFile)
-        file_layout = QtWidgets.QHBoxLayout()
-        file_layout.addWidget(self.video_path_edit)
-        file_layout.addWidget(browse_video_btn)
-        video_layout.addWidget(video_label)
-        video_layout.addLayout(file_layout)
+        row = QtWidgets.QHBoxLayout()
+        row.addWidget(self.video_path_edit)
+        row.addWidget(browse_video_btn)
+        video_layout.addLayout(row)
         layout.addWidget(self.video_widget)
 
+        # Bird’s-eye image upload
         upload_btn = QtWidgets.QPushButton("Upload Bird’s-Eye Image")
         upload_btn.clicked.connect(self.browseSatelliteImage)
         self.birdImageLabel = QtWidgets.QLabel()
@@ -64,12 +64,14 @@ class AddLocationDialog(QtWidgets.QDialog):
         layout.addWidget(upload_btn)
         layout.addWidget(self.birdImageLabel)
 
+        # Homography setter
         homo_btn = QtWidgets.QPushButton("Set Homography")
         homo_btn.clicked.connect(self.setHomography)
         self.homo_status = QtWidgets.QLabel("Homography not set.")
         layout.addWidget(homo_btn)
         layout.addWidget(self.homo_status)
 
+        # Dialog buttons
         btns = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
         )
@@ -77,6 +79,7 @@ class AddLocationDialog(QtWidgets.QDialog):
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
 
+        # Toggle between source fields
         self.stream_radio.toggled.connect(self.toggle_source_fields)
         self.video_radio.toggled.connect(self.toggle_source_fields)
         self.toggle_source_fields()
@@ -95,7 +98,7 @@ class AddLocationDialog(QtWidgets.QDialog):
 
     def browseSatelliteImage(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Satellite Image", "", "Images (*.png *.jpg)"
+            self, "Select Satellite Image", "", "Images (*.png *.jpg *.jpeg *.bmp)"
         )
         if not path:
             return
@@ -109,7 +112,7 @@ class AddLocationDialog(QtWidgets.QDialog):
         save_path = os.path.join(save_dir, f"{name}_cropped{ext}")
         cropped.save(save_path)
         self.bird_image_path = save_path
-        self.birdImageLabel.setPixmap(cropped)
+        self.birdImageLabel.setPixmap(QtCore.QPixmap(save_path))
 
     def setHomography(self):
         if not self.bird_image_path:
@@ -117,15 +120,16 @@ class AddLocationDialog(QtWidgets.QDialog):
                 self, "Error", "Please upload a bird’s-eye image first."
             )
             return
-        cam_frame = FrameExtractor.get_single_frame(
-            self.stream_edit.text().strip()
-        )
-        if cam_frame is None:
+        if self.stream_radio.isChecked():
+            frame = FrameExtractor.get_single_frame(self.stream_edit.text().strip())
+        else:
+            frame = FrameExtractor.get_single_frame_file(self.video_path_edit.text().strip())
+        if frame is None:
             QtWidgets.QMessageBox.critical(
                 self, "Error", "Could not retrieve a camera frame."
             )
             return
-        dlg = HomographySetterDialog(cam_frame, self.bird_image_path, self)
+        dlg = HomographySetterDialog(frame, self.bird_image_path, self)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             self.homography_matrix = dlg.get_homography()
             self.homo_status.setText("Homography set successfully.")
@@ -137,20 +141,27 @@ class AddLocationDialog(QtWidgets.QDialog):
         if not name:
             QtWidgets.QMessageBox.warning(self, "Validation", "Name is required.")
             return
-        loc = {"name": name,
-               "polygons_file": os.path.join(
-                   "resources", "location_regions", f"polygons_{uuid.uuid4().hex}.json"
-               )}
+
+        loc = {"name": name}
         if self.stream_radio.isChecked():
             loc["stream_url"] = self.stream_edit.text().strip()
         else:
             loc["video_path"] = self.video_path_edit.text().strip()
+
         if self.bird_image_path:
             loc["birds_eye_image"] = self.bird_image_path
         if self.homography_matrix is not None:
-            loc["homography_matrix"] = self.homography_matrix.tolist()
-        LocationManager.add_location(loc)
-        os.makedirs(os.path.dirname(loc["polygons_file"]), exist_ok=True)
-        with open(loc["polygons_file"], "w") as f:
-            json.dump([], f, indent=4)
+            hm = (
+                self.homography_matrix.tolist()
+                if hasattr(self.homography_matrix, "tolist")
+                else self.homography_matrix
+            )
+            loc["homography_matrix"] = hm
+
+        try:
+            LocationManager.add_location(loc)
+        except ValueError as e:
+            QtWidgets.QMessageBox.warning(self, "Validation", str(e))
+            return
+
         self.accept()

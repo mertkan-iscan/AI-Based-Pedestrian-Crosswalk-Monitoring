@@ -132,11 +132,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.selected_location:
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
             return
+
         from gui.EditLocationDialog import EditLocationDialog
         dialog = EditLocationDialog(self.selected_location, self)
+
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            # The dialog already wrote locations.json and renamed the JSON file.
             new_loc = dialog.get_updated_location()
-            LocationManager.update_location(self.selected_location, new_loc)
+
+            # Update the in-memory selection and refresh the UI
             self.selected_location = new_loc
             self.refresh_lists()
 

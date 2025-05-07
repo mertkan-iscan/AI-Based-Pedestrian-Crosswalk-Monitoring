@@ -14,7 +14,8 @@ class RegionEditor:
         self.other_regions = {                 # stand-alone regions
             "detection_blackout": [],
             "road": [],
-            "sidewalk": []
+            "sidewalk": [],
+            "deletion_area": []
         }
 
         # Auto-load if a file was given
@@ -105,7 +106,8 @@ class RegionEditor:
             "sidewalk": (255, 255, 0),
             "car_wait": (255, 102, 102),
             "pedes_wait": (0, 153, 0),
-            "traffic_light": (0, 0, 255)
+            "traffic_light": (0, 0, 255),
+            "deletion_area": (255, 0, 255)
         }
 
         overlay = image.copy()
@@ -135,12 +137,7 @@ class RegionEditor:
 
     @property
     def region_polygons(self):
-        """
-        Flatten every stored polygon into a single list.
-        Each item is a dict containing:
-            { "id": int, "points": [[x,y], …], "type": str, "pack_id": int|None }
-        `type` matches the legacy names expected by RegionEditorDialog.
-        """
+
         flattened = []
 
         # Crosswalk-pack polygons
@@ -173,24 +170,7 @@ class RegionEditor:
         return flattened
 
     def add_polygon(self, poly):
-        """
-        Insert a newly-drawn polygon coming from RegionEditorDialog.
 
-        Parameters
-        ----------
-        poly : dict
-            Must contain at least:
-                "type"   – region type string
-                "points" – list of [x, y] coordinates
-            May optionally contain:
-                "pack_id" – target crosswalk-pack id; if absent or invalid,
-                             a new pack is created automatically.
-
-        Returns
-        -------
-        int
-            The unique polygon id assigned.
-        """
         rtype = poly.get("type")
         points = poly.get("points")
         if rtype is None or points is None:
@@ -253,3 +233,13 @@ class RegionEditor:
             ]
             return len(self.other_regions[region_type]) < before
         return False
+
+    def delete_pack(self, pack_id: int) -> bool:
+        before = len(self.crosswalk_packs)
+        self.crosswalk_packs = [p for p in self.crosswalk_packs if p.id != pack_id]
+        return len(self.crosswalk_packs) < before
+
+    def clear_all(self):
+        self.crosswalk_packs.clear()
+        for key in self.other_regions:
+            self.other_regions[key].clear()

@@ -2,31 +2,49 @@
     {
         "name": "mevlana live",
         "stream_url": "https://content.tvkur.com/l/c77i7s384cnrb6mlji90/master.m3u8",
-        "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json"
+        "polygons_file": "resources\\location_regions\\region_polygons_mevlana_live.json",
+        "homography_matrix": [
+            [
+                -0.25395549190643396,
+                -1.213204741039644,
+                449.5542597827375
+            ],
+            [
+                -0.16396229870005782,
+                -2.230602040708445,
+                701.1622084000483
+            ],
+            [
+                -0.0003528124801527302,
+                -0.00421613889263113,
+                1.0
+            ]
+        ],
+        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg"
     },
     {
         "name": "zafer live",
         "stream_url": "https://content.tvkur.com/l/c77ibcnbb2nj4i0fr8cg/master.m3u8",
-        "polygons_file": "resources\\location_regions\\polygons_a45a793188794bcfb1e87a103addbb02.json"
+        "polygons_file": "resources\\location_regions\\region_polygons_zafer_live.json"
     },
     {
         "name": "mevlana video 1",
         "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rain_start_morning_.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_ceadde8b651d469d8004dd5c8038dac7.json",
+        "polygons_file": "resources\\location_regions\\region_polygons_mevlana_video_1.json",
         "homography_matrix": [
             [
-                -0.22611625183722894,
-                -1.1168035665131912,
-                413.5368663902013
+                -0.25395549190643396,
+                -1.213204741039644,
+                449.5542597827375
             ],
             [
-                -0.14161354878598706,
-                -2.0590151133789294,
-                648.2801276529984
+                -0.16396229870005782,
+                -2.230602040708445,
+                701.1622084000483
             ],
             [
-                -0.0003287704831955427,
-                -0.004179629423079487,
+                -0.0003528124801527302,
+                -0.00421613889263113,
                 1.0
             ]
         ],
@@ -34,18 +52,19 @@
     },
     {
         "name": "zafer video 1",
-        "video_path": "D:/CSE_492_project/konya_live_videos/zafer_cloudy_morning.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_a45a793188794bcfb1e87a103addbb02.json"
+        "video_path": "E:/CSE_492_project/konya_live_videos/zafer_cloudy_noon.mp4",
+        "polygons_file": "resources\\location_regions\\region_polygons_zafer_video_1.json",
+        "birds_eye_image": null
     },
     {
         "name": "yeni meral live",
         "stream_url": "https://content.tvkur.com/l/c77i6cfbb2nj4i0fr7s0/master.m3u8",
-        "polygons_file": "resources\\location_regions\\polygons_8569be15094c447495e9d3b0db2cfba0.json"
+        "polygons_file": "resources\\location_regions\\region_polygons_yeni_meral_live.json"
     },
     {
         "name": "yeni meral video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/sunny_noon_cropped.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_52a90f0ae8cb40d88bb1c1030d7e7bbf.json",
+        "polygons_file": "resources\\location_regions\\region_polygons_yeni_meral_video_1.json",
         "birds_eye_image": "resources\\satellite_images\\yeni_meral_bird.png",
         "homography_matrix": [
             [
@@ -68,7 +87,7 @@
     {
         "name": "tram video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/tramvay_noon.mp4",
-        "polygons_file": "resources\\location_regions\\polygons_628311b7864643818d631b7e2c3ad549.json",
+        "polygons_file": "resources\\location_regions\\region_polygons_tram_video_1.json",
         "birds_eye_image": "resources\\satellite_images\\Screenshot 2025-05-04 182221.png",
         "homography_matrix": [
             [
@@ -90,8 +109,18 @@
     },
     {
         "name": "mevlana rainy 1",
-        "polygons_file": "resources\\location_regions\\polygons_c0ad6a4e7a47436b913df503eda423d7.json",
+        "polygons_file": "resources\\location_regions\\region_polygons_mevlana_rainy_1.json",
         "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4",
         "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg"
+    },
+    {
+        "name": "axsset",
+        "polygons_file": "resources\\location_regions\\region_polygons_axsset.json",
+        "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_sunny_morning.mp4"
+    },
+    {
+        "name": "axssetr",
+        "polygons_file": "resources\\location_regions\\axssetr.json",
+        "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4"
     }
 ]

@@ -1,5 +1,3 @@
-import math
-
 def _point_in_poly(pt, poly):
     x, y = pt
     inside = False

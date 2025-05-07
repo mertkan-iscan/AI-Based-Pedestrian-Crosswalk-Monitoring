@@ -8,7 +8,7 @@ from torchvision.models import EfficientNet_B0_Weights, EfficientNet_V2_S_Weight
 
 
 class CNNFeatureExtractor:
-    def __init__(self, device='cuda'):
+    def __init__(self, device):
 
         self.device = device
         self.model = models.efficientnet_v2_s(weights=EfficientNet_V2_S_Weights.IMAGENET1K_V1)
