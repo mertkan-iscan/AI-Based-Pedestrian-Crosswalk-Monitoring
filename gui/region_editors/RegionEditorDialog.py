@@ -111,26 +111,34 @@ class RegionEditorDialog(QtWidgets.QDialog):
 
     def refresh_poly_list(self):
         self.tree.clear()
-        # Group polygons by crosswalk pack
-        packs = {}
-        for poly in self.editor.region_polygons:
-            pid = poly.get("pack_id")
-            if pid is not None:
-                packs.setdefault(pid, []).append(poly)
-        for pack_id, polys in packs.items():
-            parent = QtWidgets.QTreeWidgetItem(self.tree, [f"Pack {pack_id}", ""])
-            parent.setData(0, QtCore.Qt.UserRole, ("pack", pack_id))
-            for poly in polys:
-                child = QtWidgets.QTreeWidgetItem(parent, [poly["type"], str(poly["id"])] )
-                child.setData(0, QtCore.Qt.UserRole, (poly["type"], poly["id"], pack_id))
-        # List other standalone regions
+        for pack in self.editor.crosswalk_packs:
+            parent = QtWidgets.QTreeWidgetItem(self.tree, [f"Pack {pack.id}", ""])
+            parent.setData(0, QtCore.Qt.UserRole, ("pack", pack.id))
+            if pack.crosswalk:
+                cw = pack.crosswalk
+                item = QtWidgets.QTreeWidgetItem(parent, ["crosswalk", str(cw["id"])])
+                item.setData(0, QtCore.Qt.UserRole, ("crosswalk", cw["id"], pack.id))
+            for p in pack.pedes_wait:
+                item = QtWidgets.QTreeWidgetItem(parent, ["pedes_wait", str(p["id"])])
+                item.setData(0, QtCore.Qt.UserRole, ("pedes_wait", p["id"], pack.id))
+            for p in pack.car_wait:
+                item = QtWidgets.QTreeWidgetItem(parent, ["car_wait", str(p["id"])])
+                item.setData(0, QtCore.Qt.UserRole, ("car_wait", p["id"], pack.id))
+            groups = {}
+            for tl in pack.traffic_light:
+                groups.setdefault(tl["id"], []).append(tl)
+            for gid, items in groups.items():
+                tl_item = QtWidgets.QTreeWidgetItem(parent, ["traffic_light", str(gid)])
+                tl_item.setData(0, QtCore.Qt.UserRole, ("traffic_light", gid, pack.id))
+                for tl in items:
+                    ci = QtWidgets.QTreeWidgetItem(tl_item, [tl["signal_color"], ""])
+                    ci.setData(0, QtCore.Qt.UserRole, ("traffic_light", gid, pack.id))
         for rtype, regions in self.editor.other_regions.items():
             parent = QtWidgets.QTreeWidgetItem(self.tree, [rtype, ""])
             parent.setData(0, QtCore.Qt.UserRole, (rtype, None, None))
-            for region in regions:
-                rid = region.get("id")
-                child = QtWidgets.QTreeWidgetItem(parent, [rtype, str(rid)])
-                child.setData(0, QtCore.Qt.UserRole, (rtype, rid, None))
+            for reg in regions:
+                item = QtWidgets.QTreeWidgetItem(parent, [rtype, str(reg["id"])])
+                item.setData(0, QtCore.Qt.UserRole, (rtype, reg["id"], None))
         self.tree.expandAll()
 
     def delete_selected_polygon(self):

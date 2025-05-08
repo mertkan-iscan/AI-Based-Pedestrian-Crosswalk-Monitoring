@@ -1,3 +1,4 @@
+import itertools
 import json
 from pathlib import Path
 from crosswalk_inspector.CrosswalkPack import CrosswalkPack
@@ -17,9 +18,33 @@ class RegionManager:
             self.load_polygons()
 
     def load_polygons(self):
+        """Load from file, then reset the pack- and polygon-level counters to avoid duplicate IDs."""
         if not self.polygons_file:
             return
         self._load_from_file(self.polygons_file)
+
+        # ----- BEGIN COUNTER RESET LOGIC -----
+        # 1) Reset pack-level ID counter
+        if self.crosswalk_packs:
+            max_pid = max(pack.id for pack in self.crosswalk_packs)
+        else:
+            max_pid = 0
+        CrosswalkPack._pid_counter = itertools.count(max_pid + 1)
+
+        # 2) Reset polygon-level ID counter
+        poly_ids = []
+        for pack in self.crosswalk_packs:
+            if pack.crosswalk:
+                poly_ids.append(pack.crosswalk["id"])
+            poly_ids.extend(p["id"] for p in pack.pedes_wait)
+            poly_ids.extend(p["id"] for p in pack.car_wait)
+            # traffic_light circles share their own IDs
+            poly_ids.extend(tl["id"] for tl in pack.traffic_light)
+        if poly_ids:
+            max_poly = max(poly_ids)
+        else:
+            max_poly = 0
+        CrosswalkPack._poly_counter = itertools.count(max_poly + 1)
 
     def save_polygons(self):
         if not self.polygons_file:
