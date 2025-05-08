@@ -6,7 +6,7 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from detection.GlobalState import GlobalState
-from gui.OverlayWidget import OverlayWidget
+from gui.windows.OverlayWidget import OverlayWidget
 from stream.FrameProducerThread import FrameProducerThread
 from stream.VideoConsumerThread import VideoConsumerThread
 from stream.DetectionThread import DetectionThread

@@ -1,13 +1,9 @@
 import sys
-import threading
-import os
 
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import QThread
 
-from gui.MainWindow import MainWindow
-from utils.PathUpdater import dynamic_task_processor, task_queue
-from database.DBManager import DBManager
+from gui.windows.MainWindow import MainWindow
 
 from utils.benchmark.MetricSignals   import signals
 from utils.benchmark.MetricReporter  import MetricReporter

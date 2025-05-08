@@ -8,7 +8,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from detection.DetectedObject import DetectedObject
 from detection.Inference import run_inference
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
-from region.RegionEditor import RegionEditor
+from utils.region.RegionManager import RegionManager
 from detection.GlobalState import GlobalState
 from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals
@@ -41,7 +41,7 @@ class DetectionThread(QThread):
             homography_matrix = homography_matrix,
         )
 
-        self.editor = RegionEditor(polygons_file)
+        self.editor = RegionManager(polygons_file)
         self.editor.load_polygons()
 
     def _mask_blackout(self, frame):

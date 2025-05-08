@@ -2,8 +2,8 @@ import os
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from gui.CrosswalkPackEditorDialog import CrosswalkPackEditorDialog
-from region.RegionEditor import RegionEditor
+from gui.region_editors.CrosswalkPackEditorDialog import CrosswalkPackEditorDialog
+from utils.region.RegionManager import RegionManager
 
 
 class ClickableLabel(QtWidgets.QLabel):
@@ -16,7 +16,7 @@ class ClickableLabel(QtWidgets.QLabel):
 
 
 class RegionEditorDialog(QtWidgets.QDialog):
-    def __init__(self, frozen_frame, parent=None, region_editor: RegionEditor = None):
+    def __init__(self, frozen_frame, parent=None, region_editor: RegionManager = None):
         super().__init__(parent)
         self.editor = region_editor
         self.setWindowTitle("Region Editing")
@@ -192,7 +192,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         dlg = CrosswalkPackEditorDialog(
             self.frozen_frame,
             parent=self,
-            region_editor=self.editor
+            region_manager=self.editor
         )
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             self.refresh_poly_list()
@@ -226,11 +226,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
 
     def finalize_polygon(self):
         if len(self.current_points) < 3:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Warning",
-                "Need at least 3 points."
-            )
+            QtWidgets.QMessageBox.warning(self, "Warning", "Need at least 3 points.")
             return
         poly = {
             "type": self.current_region_type,
@@ -241,6 +237,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         self.current_points.clear()
         self.refresh_poly_list()
         self.update_display()
+
 
     def clear_points(self):
         self.current_points.clear()

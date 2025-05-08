@@ -2,13 +2,13 @@ import os
 import queue
 from concurrent.futures import ThreadPoolExecutor
 from PyQt5 import QtCore
-from region.RegionEditor import RegionEditor
+from utils.region.RegionManager import RegionManager
 
 class CrosswalkInspectThread(QtCore.QThread):
     inspection_ready = QtCore.pyqtSignal(list, float)
     error_signal     = QtCore.pyqtSignal(str)
 
-    def __init__(self, editor: RegionEditor, object_queue: queue.Queue, parent=None, max_workers=None):
+    def __init__(self, editor: RegionManager, object_queue: queue.Queue, parent=None, max_workers=None):
         super().__init__(parent)
         self.editor       = editor
         self.object_queue = object_queue
@@ -59,3 +59,4 @@ class CrosswalkInspectThread(QtCore.QThread):
         self._is_running = False
         self.quit()
         self.wait()
+

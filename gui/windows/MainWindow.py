@@ -1,12 +1,11 @@
-# MainWindow.py
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtWidgets
 
-from gui.AddLocationDialog import AddLocationDialog
-from gui.RegionEditorDialog import RegionEditorDialog
-from gui.VideoPlayerWindow import VideoPlayerWindow
+from gui.dialogs.AddLocationDialog import AddLocationDialog
+from gui.region_editors.RegionEditorDialog import RegionEditorDialog
+from gui.windows.VideoPlayerWindow import VideoPlayerWindow
 
-from region import LocationManager
-from region.RegionEditor import RegionEditor
+from utils import LocationManager
+from utils.region.RegionManager import RegionManager
 
 from stream.FrameExtractor import FrameExtractor
 
@@ -115,7 +114,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.selected_location:
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
             return
-        editor = RegionEditor(self.selected_location["polygons_file"])
+        editor = RegionManager(self.selected_location["polygons_file"])
         editor.load_polygons()
         if self.selected_location.get("video_path"):
             frame = FrameExtractor.get_single_frame_file(self.selected_location["video_path"])
@@ -133,7 +132,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
             return
 
-        from gui.EditLocationDialog import EditLocationDialog
+        from gui.dialogs.EditLocationDialog import EditLocationDialog
         dialog = EditLocationDialog(self.selected_location, self)
 
         if dialog.exec_() == QtWidgets.QDialog.Accepted:

@@ -1,10 +1,10 @@
 import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
-from region import LocationManager
+from utils import LocationManager
 from stream.FrameExtractor import FrameExtractor
-from gui.CropDialog import CropDialog
-from gui.HomographySetterDialog import HomographySetterDialog
+from gui.dialogs.CropDialog import CropDialog
+from gui.dialogs.HomographySetterDialog import HomographySetterDialog
 
 
 class EditLocationDialog(QtWidgets.QDialog):
