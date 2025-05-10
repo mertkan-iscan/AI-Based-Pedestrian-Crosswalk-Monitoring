@@ -5,11 +5,11 @@ import cv2
 import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from detection.DetectedObject import DetectedObject
+from crosswalk_inspector.objects.DetectedObject import DetectedObject
 from detection.Inference import run_inference
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from utils.region.RegionManager import RegionManager
-from detection.GlobalState import GlobalState
+from crosswalk_inspector.GlobalState import GlobalState
 from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals
 
@@ -22,6 +22,7 @@ class DetectionThread(QThread):
         self,
         polygons_file: str,
         detection_queue: "queue.Queue",
+        state: GlobalState,
         homography_matrix=None,
         delay: float = 1.0,
         parent=None,
@@ -30,6 +31,8 @@ class DetectionThread(QThread):
         self.queue = detection_queue
         self.delay = float(delay)
         self._run = True
+
+        self.state = state
 
         cfg = ConfigManager().get_deepsort_config()
         self.tracker = DeepSortTracker(
@@ -86,8 +89,10 @@ class DetectionThread(QThread):
 
             detected_objects = []
             for tid, (centroid, bbox) in tracks.items():
+
                 x1, y1, x2, y2, cls_idx = bbox[:5]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
+
                 detected_objects.append(
                     DetectedObject(tid, obj_type, (x1, y1, x2, y2), centroid)
                 )
@@ -111,7 +116,7 @@ class DetectionThread(QThread):
             timer.start()
 
     def _emit_detections(self, detected_objects, capture_time):
-        GlobalState.instance().update(detected_objects, time.time())
+        self.state.update(detected_objects, time.time())
         self.detections_ready.emit(detected_objects, capture_time)
 
     def stop(self):

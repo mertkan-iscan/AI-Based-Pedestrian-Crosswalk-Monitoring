@@ -5,7 +5,8 @@ import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from detection.GlobalState import GlobalState
+from crosswalk_inspector.GlobalState import GlobalState
+from crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
 from gui.windows.OverlayWidget import OverlayWidget
 from stream.FrameProducerThread import FrameProducerThread
 from stream.VideoConsumerThread import VideoConsumerThread
@@ -35,13 +36,17 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.original_frame_size = (1, 1)
         self.scaled_pixmap_size = (1, 1)
         self._report_shown = False
+        self.state = GlobalState(expiry_seconds=5.0)
+
         cfg = ConfigManager().get_detection_thread_config()
         self.detection_fps = cfg.get("detection_fps", 10)
         self.delay_seconds = cfg.get("delay_seconds", 5.0)
+
         birds_eye_path = self.location.get("birds_eye_image")
         self.birds_eye_pixmap = QtGui.QPixmap(birds_eye_path) if birds_eye_path and os.path.exists(birds_eye_path) else None
         self._build_ui()
         self._metric_reporter = MetricReporter()
+
         signals.frame_logged.connect(self._metric_reporter.on_frame)
         signals.detection_logged.connect(self._metric_reporter.on_detection)
         signals.inspection_logged.connect(self._metric_reporter.on_inspection)
@@ -126,19 +131,33 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.consumer_label.setText(f"Consumer latency: {dt:.2f} s")
 
     def _start_threads(self):
+
         source = self.location.get("video_path") or self.location["stream_url"]
+
         self.producer = FrameProducerThread(source, self.video_queue, self.detection_queue, detection_fps=self.detection_fps)
         self.producer.error_signal.connect(self._handle_error)
         self.producer.start()
+
+        self.tl_monitor = TrafficLightMonitorThread(
+            editor=self.editor,
+            global_state=self.state,
+            analyze_fn=lambda crops: "UNKNOWN"  # TODO: replace with your real classifier
+        )
+        self.tl_monitor.error_signal.connect(self._handle_error)
+        self.tl_monitor.start()
+
+
         self.video_consumer = VideoConsumerThread(self.video_queue, delay=self.delay_seconds)
         self.video_consumer.frame_ready.connect(self._update_frame)
         self.video_consumer.error_signal.connect(self._handle_error)
         self.video_consumer.start()
+
         homography = None
         if self.location.get("homography_matrix") is not None:
             homography = np.array(self.location["homography_matrix"])
-        self.detection_thread = DetectionThread(self.location["polygons_file"], self.detection_queue, homography_matrix=homography, delay=self.delay_seconds)
-        self.detection_thread.detections_ready.connect(self._update_detections)
+
+        self.detection_thread = DetectionThread(self.location["polygons_file"], self.detection_queue, state=self.state, homography_matrix=homography, delay=self.delay_seconds)
+        self.detection_thread.detections_ready.connect(self._update_detection_list_panel)
         self.detection_thread.error_signal.connect(self._handle_error)
         self.detection_thread.start()
 
@@ -153,8 +172,8 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.overlay.resize(self.video_label.size())
         self.overlay.update()
 
-    def _update_detections(self, *_):
-        objects, capture_time = GlobalState.instance().get()
+    def _update_detection_list_panel(self, *_):
+        objects, capture_time = self.state.get()
         if self.original_frame_size == (1, 1):
             return
         self.objects_list.clear()
@@ -172,24 +191,44 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             return
         orig = self.birds_eye_pixmap
         label_width = self.birds_eye_view.width()
-        scaled_bg = orig.scaled(label_width, orig.height(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        scaled_bg = orig.scaled(
+            label_width,
+            orig.height(),
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation
+        )
         scale_x = scaled_bg.width() / orig.width()
         scale_y = scaled_bg.height() / orig.height()
+
         painter = QtGui.QPainter(scaled_bg)
-        painter.setPen(QtGui.QPen(QtCore.Qt.red, 6))
-        H = (np.array(self.location["homography_matrix"]) if self.location.get("homography_matrix") is not None else None)
+        H = (
+            np.array(self.location["homography_matrix"])
+            if self.location.get("homography_matrix") is not None
+            else None
+        )
+
         for obj in objects:
             if getattr(obj, "foot_coordinate", None) is not None:
                 pt = obj.foot_coordinate
                 if H is not None:
-                    pt = cv2.perspectiveTransform(np.array([[pt]], dtype=np.float32), H)[0, 0]
+                    pt = cv2.perspectiveTransform(
+                        np.array([[pt]], dtype=np.float32), H
+                    )[0, 0]
             elif getattr(obj, "centroid_coordinate", None) is not None:
                 pt = obj.centroid_coordinate
             else:
                 continue
+
             x = pt[0] * scale_x
             y = pt[1] * scale_y
+
+            if obj.object_type == "person":
+                painter.setPen(QtGui.QPen(QtGui.QColor("yellow"), 6))
+            else:
+                painter.setPen(QtGui.QPen(QtGui.QColor("lightblue"), 6))
+
             painter.drawEllipse(QtCore.QPointF(x, y), 1, 1)
+
         painter.end()
         self.birds_eye_view.setPixmap(scaled_bg)
 

@@ -19,7 +19,9 @@ class RegionEditorDialog(QtWidgets.QDialog):
     def __init__(self, frozen_frame, parent=None, region_editor: RegionManager = None):
         super().__init__(parent)
         self.editor = region_editor
+        self.highlight = None
         self.setWindowTitle("Region Editing")
+
         self.setWindowFlags(
             QtCore.Qt.Window |
             QtCore.Qt.WindowSystemMenuHint |
@@ -90,6 +92,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         self.tree = QtWidgets.QTreeWidget()
         self.tree.setHeaderLabels(["Group", "ID"])
         self.tree.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.tree.itemClicked.connect(self.on_tree_item_click)
         right_layout.addWidget(self.tree, 1)
 
         # Delete button handles both single and pack deletion
@@ -108,6 +111,14 @@ class RegionEditorDialog(QtWidgets.QDialog):
         container.setLayout(right_layout)
         container.setFixedWidth(250)
         main_layout.addWidget(container, stretch=0)
+
+    def on_tree_item_click(self, item, column):
+        """
+        Store the selected region's data tuple so we can highlight it.
+        UserRole data is (rtype, poly_id, pack_id).
+        """
+        self.highlight = item.data(0, QtCore.Qt.UserRole)
+        self.update_display()
 
     def refresh_poly_list(self):
         self.tree.clear()
@@ -207,30 +218,102 @@ class RegionEditorDialog(QtWidgets.QDialog):
             self.update_display()
 
     def update_display(self):
+        """
+        Render all regions onto the frozen frame, annotate each with its pack_id–region_id
+        (or type–id for standalone regions), and highlight the selected item.
+        """
+        # 1) Start from the frozen frame and overlay semi-transparent areas
         img = self.frozen_frame.copy()
         img = self.editor.overlay_regions(img, alpha=0.4)
-        # draw polyline between current points
-        if len(self.current_points) > 1:
-            cv2.polylines(img, [np.array(self.current_points, np.int32)], False, (0, 0, 255), 2)
-        # Draw current points
-        for pt in self.current_points:
-            cv2.circle(img, tuple(pt), 4, (0, 0, 255), -1)
+
+        # 2) Define colors
+        pack_cols = {
+            "crosswalk": (0, 255, 255),
+            "pedes_wait": (0, 153, 0),
+            "car_wait": (255, 102, 102)
+        }
+        other_cols = {
+            "detection_blackout": (50, 50, 50),
+            "road": (50, 50, 50),
+            "sidewalk": (255, 255, 0)
+        }
+
+        # 3) Draw each CrosswalkPack
+        for pack in self.editor.crosswalk_packs:
+            # — Crosswalk polygon
+            if pack.crosswalk:
+                cw = pack.crosswalk
+                pts = np.array(cw["points"], np.int32).reshape(-1, 1, 2)
+                cv2.polylines(img, [pts], True, pack_cols["crosswalk"], 2)
+                cx = int(sum(p[0] for p in cw["points"]) / len(cw["points"]))
+                cy = int(sum(p[1] for p in cw["points"]) / len(cw["points"]))
+                cv2.putText(img, f"{pack.id}-{cw['id']}", (cx, cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                if self.highlight == ("crosswalk", cw["id"], pack.id):
+                    cv2.polylines(img, [pts], True, (0, 0, 255), 4)
+
+            # — Pedestrian‐wait polygons
+            for p in pack.pedes_wait:
+                pts = np.array(p["points"], np.int32).reshape(-1, 1, 2)
+                cv2.polylines(img, [pts], True, pack_cols["pedes_wait"], 2)
+                cx = int(sum(pt[0] for pt in p["points"]) / len(p["points"]))
+                cy = int(sum(pt[1] for pt in p["points"]) / len(p["points"]))
+                cv2.putText(img, f"{pack.id}-{p['id']}", (cx, cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                if self.highlight == ("pedes_wait", p["id"], pack.id):
+                    cv2.polylines(img, [pts], True, (0, 0, 255), 4)
+
+            # — Car‐wait polygons
+            for p in pack.car_wait:
+                pts = np.array(p["points"], np.int32).reshape(-1, 1, 2)
+                cv2.polylines(img, [pts], True, pack_cols["car_wait"], 2)
+                cx = int(sum(pt[0] for pt in p["points"]) / len(p["points"]))
+                cy = int(sum(pt[1] for pt in p["points"]) / len(p["points"]))
+                cv2.putText(img, f"{pack.id}-{p['id']}", (cx, cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                if self.highlight == ("car_wait", p["id"], pack.id):
+                    cv2.polylines(img, [pts], True, (0, 0, 255), 4)
+
+            # — Traffic‐light groups
+            groups = {}
+            for tl in pack.traffic_light:
+                groups.setdefault(tl["id"], []).append(tl)
+            for gid, lights in groups.items():
+                # label at group centroid
+                cx = int(sum(l["center"][0] for l in lights) / len(lights))
+                cy = int(sum(l["center"][1] for l in lights) / len(lights))
+                cv2.putText(img, f"{pack.id}-{gid}", (cx, cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                if self.highlight == ("traffic_light", gid, pack.id):
+                    cv2.circle(img, (cx, cy), 20, (0, 0, 255), 3)
+                # draw each light circle
+                for lt in lights:
+                    cv2.circle(img, tuple(lt["center"]), lt["radius"], (0, 0, 255), 2)
+
+        # 4) Draw standalone regions
+        for rtype, regs in self.editor.other_regions.items():
+            col = other_cols.get(rtype, (255, 255, 255))
+            for poly in regs:
+                pts = np.array(poly["points"], np.int32).reshape(-1, 1, 2)
+                cv2.polylines(img, [pts], True, col, 2)
+                cx = int(sum(pt[0] for pt in poly["points"]) / len(poly["points"]))
+                cy = int(sum(pt[1] for pt in poly["points"]) / len(poly["points"]))
+                cv2.putText(img, f"{rtype}-{poly['id']}", (cx, cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                if self.highlight == (rtype, poly["id"], None):
+                    cv2.polylines(img, [pts], True, (0, 0, 255), 4)
+
+        # 5) Blit the result into the QLabel, fitting to its size
         qimg = QtGui.QImage(
-            img.data,
-            img.shape[1],
-            img.shape[0],
-            img.strides[0],
+            img.data, img.shape[1], img.shape[0], img.strides[0],
             QtGui.QImage.Format_BGR888
         )
-        pix = QtGui.QPixmap.fromImage(qimg)
-        self.image_label.setPixmap(
-            pix.scaled(
-                self.image_label.size(),
-                QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation
-            )
+        pix = QtGui.QPixmap.fromImage(qimg).scaled(
+            self.image_label.size(),
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation
         )
-        self.refresh_poly_list()
+        self.image_label.setPixmap(pix)
 
     def finalize_polygon(self):
         if len(self.current_points) < 3:

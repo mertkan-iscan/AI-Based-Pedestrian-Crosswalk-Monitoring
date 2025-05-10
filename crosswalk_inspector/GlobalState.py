@@ -1,10 +1,7 @@
-# detection/GlobalState.py
-
 import time
 from threading import Lock
 
 class GlobalState:
-    _instance = None
 
     def __init__(self, expiry_seconds: float = 5.0):
         self._lock            = Lock()
@@ -13,11 +10,6 @@ class GlobalState:
         self._last_capture    = 0.0    # remember the original capture_time
         self.expiry_seconds   = expiry_seconds
 
-    @classmethod
-    def instance(cls):
-        if cls._instance is None:
-            cls._instance = GlobalState()
-        return cls._instance
 
     def update(self, objects_list, capture_time: float):
         with self._lock:
