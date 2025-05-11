@@ -3,6 +3,8 @@ import time
 import queue
 from PyQt5 import QtCore
 from stream.StreamContainer import StreamContainer
+from utils.region.RegionManager import RegionManager
+from crosswalk_inspector.objects.TrafficLight import TrafficLight
 
 def wait_until(target: float):
     delta = max(0.0, target - time.time())
@@ -15,7 +17,8 @@ def wait_until(target: float):
         timer.start(int(delta * 1000))
         loop.exec_()
 
-def _drop_old_and_put(q: "queue.Queue", item, limit: int):
+
+def _drop_old_and_put(q: queue.Queue, item, limit: int):
     while q.qsize() >= limit:
         try:
             q.get_nowait()
@@ -23,109 +26,137 @@ def _drop_old_and_put(q: "queue.Queue", item, limit: int):
             break
     q.put_nowait(item)
 
-def _produce_frames(
-    source: str,
-    video_q: "queue.Queue",
-    det_q: "queue.Queue",
-    is_running,
-    detection_fps: float,
-    use_av: bool = False,
-):
-    if detection_fps is None or detection_fps <= 0:
-        raise ValueError("detection_fps must be > 0")
-    det_interval = 1.0 / detection_fps
-    last_det = time.time()
-
-    if use_av:
-        with StreamContainer.get_container_context(source) as container:
-            base_pts = None
-            wall_start = None
-
-            for packet in container.demux(video=0):
-                for frame in packet.decode():
-                    if frame.pts is None or frame.time_base is None:
-                        continue
-                    if base_pts is None:
-                        base_pts = frame.pts
-                        wall_start = time.time()
-                    frame_time = (frame.pts - base_pts) * float(frame.time_base)
-                    sched_time = wall_start + frame_time
-                    capture_time = time.time()
-                    img = frame.to_ndarray(format='bgr24')
-                    item = (img, capture_time, sched_time)
-                    if video_q.maxsize:
-                        _drop_old_and_put(video_q, item, video_q.maxsize)
-                    else:
-                        video_q.put(item)
-                if (capture_time - last_det) >= det_interval:
-                    if det_q.maxsize:
-                        _drop_old_and_put(det_q, item, det_q.maxsize)
-                    else:
-                        det_q.put(item)
-                    last_det += det_interval
-        return
-
-    cap = cv2.VideoCapture(source)
-    if not cap.isOpened():
-        raise RuntimeError(f"Cannot open video source: {source}")
-
-    wall_start = time.time()
-    video_ts0 = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-
-    while is_running() and cap.isOpened():
-        ok, frame = cap.read()
-        if not ok:
-            break
-        vid_ts = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-        sched_time = wall_start + (vid_ts - video_ts0)
-        wait_until(sched_time)
-        capture_time = time.time()
-        item = (frame.copy(), capture_time, sched_time)
-        if video_q.maxsize:
-            _drop_old_and_put(video_q, item, video_q.maxsize)
-        else:
-            video_q.put(item)
-        if (capture_time - last_det) >= det_interval:
-            if det_q.maxsize:
-                _drop_old_and_put(det_q, item, det_q.maxsize)
-            else:
-                det_q.put(item)
-            last_det += det_interval
-
 class FrameProducerThread(QtCore.QThread):
     error_signal = QtCore.pyqtSignal(str)
+    traffic_light_crops = QtCore.pyqtSignal(list)
 
     def __init__(
         self,
         source: str,
-        video_queue: "queue.Queue",
-        detection_queue: "queue.Queue",
+        video_queue: queue.Queue,
+        detection_queue: queue.Queue,
         detection_fps: float,
+        traffic_light_fps: float = 20,
         use_av: bool = False,
-        parent=None,
+        editor: RegionManager = None,
+        parent=None
     ):
         super().__init__(parent)
         if detection_fps is None or detection_fps <= 0:
             raise ValueError("detection_fps must be > 0")
-        self.source = source
-        self.video_q = video_queue
-        self.detection_q = detection_queue
-        self.detection_fps = detection_fps
-        self.use_av = use_av
-        self._run = True
+        if traffic_light_fps is None or traffic_light_fps <= 0:
+            raise ValueError("traffic_light_fps must be > 0")
+        self.source             = source
+        self.video_q            = video_queue
+        self.detection_q        = detection_queue
+        self.detection_fps      = detection_fps
+        self.traffic_light_fps  = traffic_light_fps
+        self._tl_interval       = 1.0 / traffic_light_fps
+        self._last_tl_emit      = 0.0
+        self.use_av             = use_av
+        self._run               = True
+        self.editor             = editor
+        self.tl_objects         = []
+        if self.editor:
+            for pack in self.editor.crosswalk_packs:
+                groups = {}
+                for cfg in pack.traffic_light:
+                    gid = cfg['id']
+                    groups.setdefault(gid, {'type': cfg['light_type'], 'lights': {}})
+                    groups[gid]['lights'][cfg['signal_color']] = {
+                        'center': cfg['center'],
+                        'radius': cfg['radius']
+                    }
+                for gid, gcfg in groups.items():
+                    self.tl_objects.append(
+                        TrafficLight(pack.id, gid, gcfg['type'], gcfg['lights'])
+                    )
 
     def run(self):
         try:
-            _produce_frames(
-                self.source,
-                self.video_q,
-                self.detection_q,
-                lambda: self._run,
-                self.detection_fps,
-                self.use_av,
-            )
+            if self.use_av:
+                self._run_av()
+            else:
+                self._run_opencv()
         except Exception as e:
             self.error_signal.emit(str(e))
+
+    def _run_opencv(self):
+        cap = cv2.VideoCapture(self.source)
+        if not cap.isOpened():
+            raise RuntimeError(f"Cannot open video source: {self.source}")
+        wall_start = time.time()
+        video_ts0 = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+        last_det = time.time()
+        det_interval = 1.0 / self.detection_fps
+        emit_sig = self.traffic_light_crops.emit
+        tl_objects = self.tl_objects
+
+        while self._run and cap.isOpened():
+            ok, frame = cap.read()
+            if not ok:
+                break
+            vid_ts = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            sched_time = wall_start + (vid_ts - video_ts0)
+            wait_until(sched_time)
+            capture_time = time.time()
+            item = (frame.copy(), capture_time, sched_time)
+
+            now = capture_time
+            if tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
+                batch = [(tl, tl.crop_regions(frame), capture_time) for tl in tl_objects]
+                emit_sig(batch)
+                self._last_tl_emit = now
+
+            if self.video_q.maxsize:
+                _drop_old_and_put(self.video_q, item, self.video_q.maxsize)
+            else:
+                self.video_q.put(item)
+            if (capture_time - last_det) >= det_interval:
+                if self.detection_q.maxsize:
+                    _drop_old_and_put(self.detection_q, item, self.detection_q.maxsize)
+                else:
+                    self.detection_q.put(item)
+                last_det += det_interval
+
+    def _run_av(self):
+        base_pts = None
+        wall_start = None
+        last_det = time.time()
+        det_interval = 1.0 / self.detection_fps
+        emit_sig = self.traffic_light_crops.emit
+        tl_objects = self.tl_objects
+
+        with StreamContainer.get_container_context(self.source) as container:
+            for packet in container.demux(video=0):
+                for frame_pkt in packet.decode():
+                    if frame_pkt.pts is None or frame_pkt.time_base is None:
+                        continue
+                    if base_pts is None:
+                        base_pts = frame_pkt.pts
+                        wall_start = time.time()
+                    frame_time = (frame_pkt.pts - base_pts) * float(frame_pkt.time_base)
+                    sched_time = wall_start + frame_time
+                    capture_time = time.time()
+                    img = frame_pkt.to_ndarray(format='bgr24')
+                    item = (img, capture_time, sched_time)
+
+                    now = capture_time
+                    if tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
+                        batch = [(tl, tl.crop_regions(img), capture_time) for tl in tl_objects]
+                        emit_sig(batch)
+                        self._last_tl_emit = now
+
+                    if self.video_q.maxsize:
+                        _drop_old_and_put(self.video_q, item, self.video_q.maxsize)
+                    else:
+                        self.video_q.put(item)
+                    if (capture_time - last_det) >= det_interval:
+                        if self.detection_q.maxsize:
+                            _drop_old_and_put(self.detection_q, item, self.detection_q.maxsize)
+                        else:
+                            self.detection_q.put(item)
+                        last_det += det_interval
 
     def stop(self):
         self._run = False

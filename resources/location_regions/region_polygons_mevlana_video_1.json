@@ -187,28 +187,6 @@
             ]
           ]
         }
-      ],
-      "traffic_lights": [
-        {
-          "id": 13,
-          "type": "pedestrian",
-          "lights": {
-            "red": {
-              "center": [
-                1452,
-                256
-              ],
-              "radius": 8
-            },
-            "green": {
-              "center": [
-                1449,
-                271
-              ],
-              "radius": 7
-            }
-          }
-        }
       ]
     },
     {
@@ -281,33 +259,6 @@
         }
       ],
       "traffic_lights": [
-        {
-          "id": 17,
-          "type": "vehicle",
-          "lights": {
-            "red": {
-              "center": [
-                1155,
-                355
-              ],
-              "radius": 7
-            },
-            "yellow": {
-              "center": [
-                1152,
-                378
-              ],
-              "radius": 8
-            },
-            "green": {
-              "center": [
-                1156,
-                400
-              ],
-              "radius": 9
-            }
-          }
-        },
         {
           "id": 18,
           "type": "pedestrian",

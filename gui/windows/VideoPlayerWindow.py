@@ -15,6 +15,8 @@ from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricReporter import MetricReporter
 from utils.benchmark.MetricSignals import signals
 from utils.benchmark.ReportManager import ReportManager
+from utils.region.RegionManager import RegionManager
+
 
 class ScalableLabel(QtWidgets.QLabel):
     def __init__(self, parent=None):
@@ -32,6 +34,9 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         super().__init__(parent)
         self.setWindowTitle(f"Live Stream – {location['name']}")
         self.location = location
+
+        self.editor = RegionManager(self.location.get('polygons_file'))
+
         self.current_pixmap = None
         self.original_frame_size = (1, 1)
         self.scaled_pixmap_size = (1, 1)
@@ -134,15 +139,22 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
         source = self.location.get("video_path") or self.location["stream_url"]
 
-        self.producer = FrameProducerThread(source, self.video_queue, self.detection_queue, detection_fps=self.detection_fps)
+        self.tl_monitor = TrafficLightMonitorThread()
+        self.tl_monitor.error_signal.connect(self._handle_error)
+        self.tl_monitor.start()
+
+        self.producer = FrameProducerThread(
+            source,
+            self.video_queue,
+            self.detection_queue,
+            detection_fps=self.detection_fps,
+            editor=self.editor
+        )
+        self.producer.traffic_light_crops.connect(
+            self.tl_monitor.on_new_crops, QtCore.Qt.QueuedConnection
+        )
         self.producer.error_signal.connect(self._handle_error)
         self.producer.start()
-
-        self.tl_monitor = TrafficLightMonitorThread(
-            editor=self.editor,
-            global_state=self.state,
-            analyze_fn=lambda crops: "UNKNOWN"  # TODO: replace with your real classifier
-        )
         self.tl_monitor.error_signal.connect(self._handle_error)
         self.tl_monitor.start()
 
