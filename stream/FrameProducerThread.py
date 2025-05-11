@@ -5,6 +5,7 @@ from PyQt5 import QtCore
 from stream.StreamContainer import StreamContainer
 from utils.region.RegionManager import RegionManager
 from crosswalk_inspector.objects.TrafficLight import TrafficLight
+from concurrent.futures import ThreadPoolExecutor
 
 def wait_until(target: float):
     delta = max(0.0, target - time.time())
@@ -36,7 +37,7 @@ class FrameProducerThread(QtCore.QThread):
         video_queue: queue.Queue,
         detection_queue: queue.Queue,
         detection_fps: float,
-        traffic_light_fps: float = 20,
+        traffic_light_fps: float = 5.0,
         use_av: bool = False,
         editor: RegionManager = None,
         parent=None
@@ -46,17 +47,18 @@ class FrameProducerThread(QtCore.QThread):
             raise ValueError("detection_fps must be > 0")
         if traffic_light_fps is None or traffic_light_fps <= 0:
             raise ValueError("traffic_light_fps must be > 0")
-        self.source             = source
-        self.video_q            = video_queue
-        self.detection_q        = detection_queue
-        self.detection_fps      = detection_fps
-        self.traffic_light_fps  = traffic_light_fps
-        self._tl_interval       = 1.0 / traffic_light_fps
-        self._last_tl_emit      = 0.0
-        self.use_av             = use_av
-        self._run               = True
-        self.editor             = editor
-        self.tl_objects         = []
+        self.source            = source
+        self.video_q           = video_queue
+        self.detection_q       = detection_queue
+        self.detection_fps     = detection_fps
+        self.traffic_light_fps = traffic_light_fps
+        self._tl_interval      = 1.0 / traffic_light_fps
+        self._last_tl_emit     = 0.0
+        self.use_av            = use_av
+        self._run              = True
+        self.editor            = editor
+        # prepare traffic light objects
+        self.tl_objects        = []
         if self.editor:
             for pack in self.editor.crosswalk_packs:
                 groups = {}
@@ -71,6 +73,8 @@ class FrameProducerThread(QtCore.QThread):
                     self.tl_objects.append(
                         TrafficLight(pack.id, gid, gcfg['type'], gcfg['lights'])
                     )
+        # separate executor for cropping to avoid blocking capture loop
+        self._crop_executor = ThreadPoolExecutor(max_workers=5)
 
     def run(self):
         try:
@@ -81,6 +85,11 @@ class FrameProducerThread(QtCore.QThread):
         except Exception as e:
             self.error_signal.emit(str(e))
 
+    def _produce_crop(self, frame, capture_time):
+        # runs in executor thread
+        batch = [(tl, tl.crop_regions(frame), capture_time) for tl in self.tl_objects]
+        self.traffic_light_crops.emit(batch)
+
     def _run_opencv(self):
         cap = cv2.VideoCapture(self.source)
         if not cap.isOpened():
@@ -89,8 +98,6 @@ class FrameProducerThread(QtCore.QThread):
         video_ts0 = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
         last_det = time.time()
         det_interval = 1.0 / self.detection_fps
-        emit_sig = self.traffic_light_crops.emit
-        tl_objects = self.tl_objects
 
         while self._run and cap.isOpened():
             ok, frame = cap.read()
@@ -103,15 +110,19 @@ class FrameProducerThread(QtCore.QThread):
             item = (frame.copy(), capture_time, sched_time)
 
             now = capture_time
-            if tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
-                batch = [(tl, tl.crop_regions(frame), capture_time) for tl in tl_objects]
-                emit_sig(batch)
+            if self.tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
+                # offload cropping to executor
+                frame_for_crop = frame.copy()
+                self._crop_executor.submit(self._produce_crop, frame_for_crop, capture_time)
                 self._last_tl_emit = now
 
+            # push to video queue
             if self.video_q.maxsize:
                 _drop_old_and_put(self.video_q, item, self.video_q.maxsize)
             else:
                 self.video_q.put(item)
+
+            # push to detection queue
             if (capture_time - last_det) >= det_interval:
                 if self.detection_q.maxsize:
                     _drop_old_and_put(self.detection_q, item, self.detection_q.maxsize)
@@ -124,8 +135,6 @@ class FrameProducerThread(QtCore.QThread):
         wall_start = None
         last_det = time.time()
         det_interval = 1.0 / self.detection_fps
-        emit_sig = self.traffic_light_crops.emit
-        tl_objects = self.tl_objects
 
         with StreamContainer.get_container_context(self.source) as container:
             for packet in container.demux(video=0):
@@ -142,9 +151,9 @@ class FrameProducerThread(QtCore.QThread):
                     item = (img, capture_time, sched_time)
 
                     now = capture_time
-                    if tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
-                        batch = [(tl, tl.crop_regions(img), capture_time) for tl in tl_objects]
-                        emit_sig(batch)
+                    if self.tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
+                        img_for_crop = img.copy()
+                        self._crop_executor.submit(self._produce_crop, img_for_crop, capture_time)
                         self._last_tl_emit = now
 
                     if self.video_q.maxsize:
@@ -160,5 +169,7 @@ class FrameProducerThread(QtCore.QThread):
 
     def stop(self):
         self._run = False
+        # shutdown crop executor to stop pending tasks
+        self._crop_executor.shutdown(wait=False)
         self.quit()
         self.wait()
