@@ -29,7 +29,7 @@
     },
     {
         "name": "mevlana video 1",
-        "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rain_start_morning_.mp4",
+        "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rain_start_morning_.mp4",
         "polygons_file": "resources\\location_regions\\region_polygons_mevlana_video_1.json",
         "homography_matrix": [
             [
@@ -52,7 +52,7 @@
     },
     {
         "name": "zafer video 1",
-        "video_path": "E:/CSE_492_project/konya_live_videos/zafer_cloudy_noon.mp4",
+        "video_path": "D:/CSE_492_project/konya_live_videos/zafer_cloudy_noon.mp4",
         "polygons_file": "resources\\location_regions\\region_polygons_zafer_video_1.json",
         "birds_eye_image": null
     },
@@ -116,11 +116,11 @@
     {
         "name": "axsset",
         "polygons_file": "resources\\location_regions\\region_polygons_axsset.json",
-        "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_sunny_morning.mp4"
+        "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_sunny_morning.mp4"
     },
     {
         "name": "axssetr",
         "polygons_file": "resources\\location_regions\\region_polygons_axssetr.json",
-        "video_path": "E:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4"
+        "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4"
     }
 ]

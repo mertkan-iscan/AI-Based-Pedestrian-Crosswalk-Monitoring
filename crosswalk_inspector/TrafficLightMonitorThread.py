@@ -47,10 +47,11 @@ class TrafficLightMonitorThread(QtCore.QThread):
             data: List[Tuple[TrafficLight, Dict[str, np.ndarray], float]]):
 
         for tl, crops, ts in data:
-            status = tl.update_status(self.analyze_fn)
-            timestr = datetime.fromtimestamp(ts) \
-                      .strftime("%H:%M:%S.%f")[:-3]
-            print(f"[{timestr}] Pack:{tl.pack_id} Light:{tl.id} → {status}")
+            tl.update_status(self.analyze_fn)
+            # status = tl.update_status(self.analyze_fn)
+            # timestr = datetime.fromtimestamp(ts) \
+            #           .strftime("%H:%M:%S.%f")[:-3]
+            # print(f"[{timestr}] Pack:{tl.pack_id} Light:{tl.id} → {status}")
 
     def run(self):
         # Start Qt event loop to process incoming signals

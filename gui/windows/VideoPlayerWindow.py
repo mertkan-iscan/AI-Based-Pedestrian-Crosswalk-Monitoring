@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from crosswalk_inspector.CrosswalkInspectThread import CrosswalkInspectThread
 from crosswalk_inspector.GlobalState import GlobalState
 from crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
 from gui.windows.OverlayWidget import OverlayWidget
@@ -137,13 +138,25 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.consumer_label.setText(f"Consumer latency: {dt:.2f} s")
 
     def _start_threads(self):
-
+        # 1) Source setup
         source = self.location.get("video_path") or self.location["stream_url"]
 
+        # 2) Compute homography and its inverse
+        homography = None
+        H_inv = None
+        if self.location.get("homography_matrix") is not None:
+            homography = np.array(self.location["homography_matrix"], dtype=np.float32)
+            try:
+                H_inv = np.linalg.inv(homography)
+            except np.linalg.LinAlgError:
+                H_inv = None
+
+        # 3) Start the traffic‐light monitor
         self.tl_monitor = TrafficLightMonitorThread()
         self.tl_monitor.error_signal.connect(self._handle_error)
         self.tl_monitor.start()
 
+        # 4) Start the frame producer (also emits TL crops)
         self.producer = FrameProducerThread(
             source,
             self.video_queue,
@@ -157,20 +170,32 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         )
         self.producer.error_signal.connect(self._handle_error)
         self.producer.start()
-        self.tl_monitor.error_signal.connect(self._handle_error)
-        self.tl_monitor.start()
 
+        # 5) Start the crosswalk inspector, now passing H_inv
+        self.crosswalk_monitor = CrosswalkInspectThread(
+            editor=self.editor,
+            global_state=self.state,
+            tl_objects=self.producer.tl_objects,
+            check_period=0.2,
+            homography_inv=H_inv      # ← pass the inverse homography here
+        )
+        self.crosswalk_monitor.error_signal.connect(self._handle_error)
+        self.crosswalk_monitor.start()
 
+        # 6) Start the video consumer
         self.video_consumer = VideoConsumerThread(self.video_queue, delay=self.delay_seconds)
         self.video_consumer.frame_ready.connect(self._update_frame)
         self.video_consumer.error_signal.connect(self._handle_error)
         self.video_consumer.start()
 
-        homography = None
-        if self.location.get("homography_matrix") is not None:
-            homography = np.array(self.location["homography_matrix"])
-
-        self.detection_thread = DetectionThread(self.location["polygons_file"], self.detection_queue, state=self.state, homography_matrix=homography, delay=self.delay_seconds)
+        # 7) Finally, start the detection thread (uses homography forward)
+        self.detection_thread = DetectionThread(
+            self.location["polygons_file"],
+            self.detection_queue,
+            state=self.state,
+            homography_matrix=homography,
+            delay=self.delay_seconds
+        )
         self.detection_thread.detections_ready.connect(self._update_detection_list_panel)
         self.detection_thread.error_signal.connect(self._handle_error)
         self.detection_thread.start()
