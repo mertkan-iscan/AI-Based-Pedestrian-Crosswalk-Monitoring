@@ -2,15 +2,21 @@ yolo:
   device: cuda
   version: yolov5xu.pt
   imgsz: 640
+
 database:
   db_file: resources/object_paths.db
   record_paths: False
+
 deepsort:
   max_disappeared: 40
   max_distance: 50
   device: "cuda"
   appearance_weight: 0.6
   motion_weight: 0.4
+
 detection_thread:
   detection_fps: 10
   delay_seconds: 5.0
+
+crosswalk_monitor:
+  traffic_light_fps: 20

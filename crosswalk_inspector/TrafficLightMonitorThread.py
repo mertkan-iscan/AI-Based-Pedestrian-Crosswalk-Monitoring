@@ -45,9 +45,7 @@ class TrafficLightMonitorThread(QtCore.QThread):
     @QtCore.pyqtSlot(list)
     def on_new_crops(self,
             data: List[Tuple[TrafficLight, Dict[str, np.ndarray], float]]):
-        """
-        data: list of tuples (tl_object, crops, capture_time)
-        """
+
         for tl, crops, ts in data:
             status = tl.update_status(self.analyze_fn)
             timestr = datetime.fromtimestamp(ts) \

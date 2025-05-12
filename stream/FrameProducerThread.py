@@ -28,6 +28,7 @@ def _drop_old_and_put(q: queue.Queue, item, limit: int):
     q.put_nowait(item)
 
 class FrameProducerThread(QtCore.QThread):
+
     error_signal = QtCore.pyqtSignal(str)
     traffic_light_crops = QtCore.pyqtSignal(list)
 
@@ -37,16 +38,18 @@ class FrameProducerThread(QtCore.QThread):
         video_queue: queue.Queue,
         detection_queue: queue.Queue,
         detection_fps: float,
-        traffic_light_fps: float = 5.0,
+        traffic_light_fps: float = None,
         use_av: bool = False,
         editor: RegionManager = None,
         parent=None
     ):
         super().__init__(parent)
+
         if detection_fps is None or detection_fps <= 0:
             raise ValueError("detection_fps must be > 0")
         if traffic_light_fps is None or traffic_light_fps <= 0:
             raise ValueError("traffic_light_fps must be > 0")
+
         self.source            = source
         self.video_q           = video_queue
         self.detection_q       = detection_queue
@@ -57,22 +60,27 @@ class FrameProducerThread(QtCore.QThread):
         self.use_av            = use_av
         self._run              = True
         self.editor            = editor
+
         # prepare traffic light objects
         self.tl_objects        = []
         if self.editor:
             for pack in self.editor.crosswalk_packs:
+
                 groups = {}
                 for cfg in pack.traffic_light:
+
                     gid = cfg['id']
                     groups.setdefault(gid, {'type': cfg['light_type'], 'lights': {}})
                     groups[gid]['lights'][cfg['signal_color']] = {
                         'center': cfg['center'],
                         'radius': cfg['radius']
                     }
+
                 for gid, gcfg in groups.items():
                     self.tl_objects.append(
                         TrafficLight(pack.id, gid, gcfg['type'], gcfg['lights'])
                     )
+
         # separate executor for cropping to avoid blocking capture loop
         self._crop_executor = ThreadPoolExecutor(max_workers=5)
 

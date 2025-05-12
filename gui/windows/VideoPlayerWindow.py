@@ -43,9 +43,10 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self._report_shown = False
         self.state = GlobalState(expiry_seconds=5.0)
 
-        cfg = ConfigManager().get_detection_thread_config()
-        self.detection_fps = cfg.get("detection_fps", 10)
-        self.delay_seconds = cfg.get("delay_seconds", 5.0)
+        cfg = ConfigManager()
+        self.detection_fps = cfg.get_detection_fps()
+        self.delay_seconds = cfg.get_delay_seconds()
+        self.traffic_light_fps = cfg.get_traffic_light_fps()
 
         birds_eye_path = self.location.get("birds_eye_image")
         self.birds_eye_pixmap = QtGui.QPixmap(birds_eye_path) if birds_eye_path and os.path.exists(birds_eye_path) else None
@@ -148,6 +149,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             self.video_queue,
             self.detection_queue,
             detection_fps=self.detection_fps,
+            traffic_light_fps=self.traffic_light_fps,
             editor=self.editor
         )
         self.producer.traffic_light_crops.connect(
