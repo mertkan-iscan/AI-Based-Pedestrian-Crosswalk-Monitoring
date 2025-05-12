@@ -12,7 +12,7 @@ class VideoConsumerThread(QtCore.QThread):
     frame_ready = QtCore.pyqtSignal(QtGui.QImage)
     error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(self, video_queue: "queue.Queue", delay: float = 1.0, parent=None):
+    def __init__(self, video_queue: "queue.Queue", delay, parent=None):
         super().__init__(parent)
         self.queue = video_queue
         self.delay = float(delay)
