@@ -5,15 +5,19 @@ from crosswalk_inspector.CrosswalkPack import CrosswalkPack
 from utils.region.RegionIndexer import RegionIndexer
 
 class RegionManager:
+
     def __init__(self, polygons_file=None):
+
         self.polygons_file = polygons_file
         self.crosswalk_packs = []
+
         self.other_regions = {
             "detection_blackout": [],
             "road": [],
             "sidewalk": [],
             "deletion_area": []
         }
+
         if self.polygons_file:
             self.load_polygons()
 

@@ -46,6 +46,7 @@ class EntityState:
     def __init__(self, track_id, class_name):
         self.track_id = track_id
         self.class_name = class_name
+        self.current_regions = set()
         self._entries = {}
         self.durations = {}
 
@@ -54,18 +55,16 @@ class EntityState:
             self._entries[name] = now
         elif not inside and name in self._entries:
             entry = self._entries.pop(name)
+            # record time spent in that region
             self.durations[name] = (now - entry).total_seconds()
+        if inside:
+            self.current_regions.add(name)
+        else:
+            self.current_regions.discard(name)
 
 
 class CrosswalkPackMonitor:
-    def __init__(
-        self,
-        pack_id,
-        crosswalk_poly,
-        pedes_wait_list,
-        car_wait_list,
-        homography_inv=None
-    ):
+    def __init__(self, pack_id, crosswalk_poly, pedes_wait_list, car_wait_list, homography_inv=None):
         self.pack_id = pack_id
         self.crosswalk = Region(crosswalk_poly, homography_inv)
         self.ped_wait_regions = [Region(p['points'], homography_inv) for p in pedes_wait_list]
@@ -82,6 +81,7 @@ class CrosswalkPackMonitor:
             pt = det.foot_coordinate or det.centroid_coordinate
             if pt is None:
                 continue
+            # update region entries/exits
             for i, reg in enumerate(self.ped_wait_regions):
                 st.update_region(f"ped_wait_{i}", reg.contains(pt), now)
             st.update_region("crosswalk", self.crosswalk.contains(pt), now)
@@ -93,15 +93,12 @@ class CrosswalkInspectThread(QtCore.QThread):
     inspection_ready = QtCore.pyqtSignal(list, float)
     error_signal = QtCore.pyqtSignal(str)
 
-    def __init__(
-        self,
-        editor: RegionManager,
-        global_state: GlobalState,
-        tl_objects: list[TrafficLight],
-        check_period: float,
-        homography_inv=None,
-        parent=None
-    ):
+    # thresholds
+    T_PED_WAIT = 2.0
+
+    def __init__(self, editor: RegionManager, global_state: GlobalState,
+                 tl_objects: list[TrafficLight], check_period: float,
+                 homography_inv=None, parent=None):
         super().__init__(parent)
         self.editor = editor
         self.state = global_state
@@ -110,16 +107,15 @@ class CrosswalkInspectThread(QtCore.QThread):
         self._last_check = 0.0
         self._running = True
         self.H_inv = homography_inv
+        # map pack.id to pack for signalization info
+        self.packs = {pack.id: pack for pack in editor.crosswalk_packs}
+        # remember last light state
         self._last_tl_status = {tl.id: None for tl in tl_objects}
+        # monitors per pack
         self.monitors = {
             pack.id: CrosswalkPackMonitor(
-                pack.id,
-                pack.crosswalk["points"],
-                pack.pedes_wait,
-                pack.car_wait,
-                homography_inv
-            )
-            for pack in editor.crosswalk_packs
+                pack.id, pack.crosswalk["points"], pack.pedes_wait, pack.car_wait, homography_inv
+            ) for pack in editor.crosswalk_packs
         }
 
     def run(self):
@@ -134,57 +130,50 @@ class CrosswalkInspectThread(QtCore.QThread):
                 objects, ts = self.state.get()
                 if not objects:
                     continue
-
                 now_ts = datetime.fromtimestamp(ts)
                 timestr = now_ts.strftime("%H:%M:%S.%f")[:-3]
 
-                lines = []
+                # update entity states for regions
+                for mon in self.monitors.values():
+                    mon.process_frame(objects, now_ts, self.tl_objects)
 
-                # Log only if traffic light status changed
-                tl_changed = False
+                # gather current green/red states
+                tl_status = {
+                    tl.pack_id: tl.status
+                    for tl in self.tl_objects
+                    if getattr(self.packs.get(tl.pack_id), 'is_signalized', False)
+                }
+
+                lines = []
+                # log any light changes
+                any_change = False
                 for tl in self.tl_objects:
-                    last = self._last_tl_status.get(tl.id)
-                    if tl.status != last:
-                        tl_changed = True
+                    pack = self.packs.get(tl.pack_id)
+                    if pack and pack.is_signalized and self._last_tl_status[tl.id] != tl.status:
+                        any_change = True
                         break
-                if tl_changed:
+                if any_change:
                     lines.append(f"[{timestr}] Traffic Light Statuses:")
                     for tl in self.tl_objects:
-                        status = tl.status
-                        lines.append(f"  Pack:{tl.pack_id} Light:{tl.id} Status:{status}")
-                        self._last_tl_status[tl.id] = status
+                        pack = self.packs.get(tl.pack_id)
+                        if pack and pack.is_signalized and self._last_tl_status[tl.id] != tl.status:
+                            lines.append(f"  Pack:{tl.pack_id} Light:{tl.id} Status:{tl.status}")
+                            self._last_tl_status[tl.id] = tl.status
 
-                # Crosswalk pack region counts
+                # detect crossing pass events: no-region -> crosswalk -> no-region
                 for pack_id, mon in self.monitors.items():
-                    crosswalk_count = sum(
-                        1
-                        for det in objects
-                        if mon.crosswalk.contains(det.foot_coordinate or det.centroid_coordinate)
-                    )
-                    ped_counts = {
-                        f"ped_wait_{i}": sum(
-                            1
-                            for det in objects
-                            if reg.contains(det.foot_coordinate or det.centroid_coordinate)
-                        )
-                        for i, reg in enumerate(mon.ped_wait_regions)
-                    }
-                    car_counts = {
-                        f"car_wait_{i}": sum(
-                            1
-                            for det in objects
-                            if reg.contains(det.foot_coordinate or det.centroid_coordinate)
-                        )
-                        for i, reg in enumerate(mon.car_wait_regions)
-                    }
-                    region_counts = {"crosswalk": crosswalk_count, **ped_counts, **car_counts}
-                    lines.append(f"[{timestr}] Pack:{pack_id} Region Counts: {region_counts}")
+                    status = tl_status.get(pack_id)
+                    for tid, st in mon.entities.items():
+                        if st.class_name != 'person':
+                            # check exit from crosswalk using durations
+                            dur = st.durations.pop('crosswalk', None)
+                            if dur is not None and status == 'green':
+                                lines.append(f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)")
 
                 if lines:
                     print("\n".join(lines), flush=True)
 
                 self.inspection_ready.emit(objects, ts)
-
         except Exception as e:
             self.error_signal.emit(str(e))
 

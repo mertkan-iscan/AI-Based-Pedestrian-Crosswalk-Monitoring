@@ -4,12 +4,13 @@ class CrosswalkPack:
     _pid_counter = itertools.count(1)          # pack-level ids
     _poly_counter = itertools.count(1)         # polygon-level ids
 
-    def __init__(self):
-        self.id = next(self._pid_counter)
-        self.crosswalk = None                  # {"id": …, "points": […]} or None
-        self.pedes_wait = []                   # list of dicts
-        self.car_wait = []                     # list of dicts
-        self.traffic_light = []                # list of dicts
+    def __init__(self, id, crosswalk, pedes_wait, car_wait, traffic_light):
+        self.id = id
+        self.crosswalk = crosswalk
+        self.pedes_wait = pedes_wait
+        self.car_wait = car_wait
+        self.traffic_light = traffic_light
+        self.is_signalized = bool(traffic_light)
 
     @staticmethod
     def _new_polygon(points):
@@ -38,11 +39,13 @@ class CrosswalkPack:
 
     @classmethod
     def from_dict(cls, data):
-        # Support missing traffic_light key for new format
-        obj = cls.__new__(cls)
-        obj.id = data.get("id")
-        obj.crosswalk = data.get("crosswalk")
-        obj.pedes_wait = data.get("pedes_wait", [])
-        obj.car_wait = data.get("car_wait", [])
-        obj.traffic_light = data.get("traffic_light", [])
-        return obj
+        pedes = data.get("pedes_wait", [])
+        cars  = data.get("car_wait", [])
+        tls   = data.get("traffic_lights", [])
+        return cls(
+            data.get("id"),
+            data.get("crosswalk"),
+            pedes,
+            cars,
+            tls
+        )
