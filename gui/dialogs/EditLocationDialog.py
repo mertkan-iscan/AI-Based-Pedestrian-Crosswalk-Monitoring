@@ -131,9 +131,9 @@ class EditLocationDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.critical(self, "Error", "Upload a bird’s-eye image first.")
             return
         if self.video_radio.isChecked():
-            frame = FrameExtractor.get_single_frame_file(self._updated["video_path"])
+            frame = FrameExtractor.get_single_frame_from_file(self._updated["video_path"])
         else:
-            frame = FrameExtractor.get_single_frame(self._updated["stream_url"])
+            frame = FrameExtractor.get_single_frame_from_stream(self._updated["stream_url"])
         if frame is None:
             QtWidgets.QMessageBox.critical(self, "Error", "Cannot grab camera frame.")
             return

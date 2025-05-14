@@ -165,7 +165,7 @@ class CrosswalkInspectThread(QtCore.QThread):
                     status = tl_status.get(pack_id)
                     for tid, st in mon.entities.items():
                         if st.class_name != 'person':
-                            # check exit from crosswalk using durations
+
                             dur = st.durations.pop('crosswalk', None)
                             if dur is not None and status == 'green':
                                 lines.append(f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)")

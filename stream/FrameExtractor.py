@@ -2,7 +2,6 @@ import cv2
 
 from stream.StreamContainer import StreamContainer
 
-
 class FrameExtractor:
 
     @staticmethod
@@ -11,7 +10,7 @@ class FrameExtractor:
             yield frame.to_ndarray(format='bgr24')
 
     @staticmethod
-    def get_single_frame(stream_url):
+    def get_single_frame_from_stream(stream_url):
         try:
             with StreamContainer.get_container_context(stream_url) as container:
                 for frame in container.decode(video=0):
@@ -21,7 +20,7 @@ class FrameExtractor:
         return None
 
     @staticmethod
-    def get_single_frame_file(video_file_path):
+    def get_single_frame_from_file(video_file_path):
         cap = cv2.VideoCapture(video_file_path)
         if not cap.isOpened():
             print(f"Error: Could not open video file: {video_file_path}")

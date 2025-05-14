@@ -117,9 +117,9 @@ class MainWindow(QtWidgets.QMainWindow):
         editor = RegionManager(self.selected_location["polygons_file"])
         editor.load_polygons()
         if self.selected_location.get("video_path"):
-            frame = FrameExtractor.get_single_frame_file(self.selected_location["video_path"])
+            frame = FrameExtractor.get_single_frame_from_file(self.selected_location["video_path"])
         else:
-            frame = FrameExtractor.get_single_frame(self.selected_location["stream_url"])
+            frame = FrameExtractor.get_single_frame_from_stream(self.selected_location["stream_url"])
         if frame is None:
             QtWidgets.QMessageBox.critical(self, "Error", "Could not retrieve a frame from the source.")
             return

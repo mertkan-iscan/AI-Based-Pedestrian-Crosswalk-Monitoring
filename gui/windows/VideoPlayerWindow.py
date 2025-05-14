@@ -152,7 +152,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
                 H_inv = None
 
         # 3) Start the traffic‐light monitor
-        self.tl_monitor = TrafficLightMonitorThread()
+        self.tl_monitor = TrafficLightMonitorThread(delay=self.delay_seconds)
         self.tl_monitor.error_signal.connect(self._handle_error)
         self.tl_monitor.start()
 

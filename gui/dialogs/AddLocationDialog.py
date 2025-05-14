@@ -121,9 +121,9 @@ class AddLocationDialog(QtWidgets.QDialog):
             )
             return
         if self.stream_radio.isChecked():
-            frame = FrameExtractor.get_single_frame(self.stream_edit.text().strip())
+            frame = FrameExtractor.get_single_frame_from_stream(self.stream_edit.text().strip())
         else:
-            frame = FrameExtractor.get_single_frame_file(self.video_path_edit.text().strip())
+            frame = FrameExtractor.get_single_frame_from_file(self.video_path_edit.text().strip())
         if frame is None:
             QtWidgets.QMessageBox.critical(
                 self, "Error", "Could not retrieve a camera frame."

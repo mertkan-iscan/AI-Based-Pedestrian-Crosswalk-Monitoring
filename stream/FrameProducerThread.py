@@ -1,11 +1,13 @@
 import cv2
 import time
 import queue
+
 from PyQt5 import QtCore
 from stream.StreamContainer import StreamContainer
 from utils.region.RegionManager import RegionManager
 from crosswalk_inspector.objects.TrafficLight import TrafficLight
 from concurrent.futures import ThreadPoolExecutor
+
 
 def wait_until(target: float):
     delta = max(0.0, target - time.time())
@@ -17,7 +19,6 @@ def wait_until(target: float):
         timer.timeout.connect(loop.quit)
         timer.start(int(delta * 1000))
         loop.exec_()
-
 
 def _drop_old_and_put(q: queue.Queue, item, limit: int):
     while q.qsize() >= limit:
