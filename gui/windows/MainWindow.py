@@ -5,7 +5,7 @@ from gui.region_editors.RegionEditorDialog import RegionEditorDialog
 from gui.windows.VideoPlayerWindow import VideoPlayerWindow
 
 from utils import LocationManager
-from utils.region.RegionManager import RegionManager
+from utils.RegionManager import RegionManager
 
 from stream.FrameExtractor import FrameExtractor
 

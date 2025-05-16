@@ -7,7 +7,7 @@ from PyQt5 import QtCore
 
 from crosswalk_inspector.objects.DetectedObject import DetectedObject
 from crosswalk_inspector.objects.TrafficLight import TrafficLight
-from utils.region.RegionManager import RegionManager
+from utils.RegionManager import RegionManager
 from crosswalk_inspector.GlobalState import GlobalState
 
 

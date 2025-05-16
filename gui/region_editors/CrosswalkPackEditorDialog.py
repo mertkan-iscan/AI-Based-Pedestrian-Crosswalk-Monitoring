@@ -1,8 +1,7 @@
 import cv2, numpy as np, math
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from crosswalk_inspector.CrosswalkPack import CrosswalkPack
-from utils.region import RegionManager
+from crosswalk_inspector.objects.CrosswalkPack import CrosswalkPack
 
 
 class ClickableLabel(QtWidgets.QLabel):
@@ -330,23 +329,20 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
 
     def save_and_close(self):
         pack = self.manager.new_pack()
+        # set crosswalk
         cw_list = self.polygons.get("crosswalk", [])
         if cw_list:
             pack.set_crosswalk(cw_list[0])
+        # set car_wait regions
         for pts in self.polygons.get("car_wait", []):
             pack.add_car_wait(pts)
+        # set pedes_wait regions
         for pts in self.polygons.get("pedes_wait", []):
             pack.add_pedes_wait(pts)
+        # set traffic_light groups, using pack.add_traffic_light_group()
         for lt in self.polygons.get("traffic_lights", []):
-            group_id = next(CrosswalkPack._poly_counter)
-            for sc, cinfo in lt["lights"].items():
-                pack.traffic_light.append({
-                    "id": group_id,
-                    "center": cinfo["center"],
-                    "radius": cinfo["radius"],
-                    "light_type": lt["type"],
-                    "signal_color": sc
-                })
+            pack.add_traffic_light_group(lt["type"], lt["lights"])
+        # persist and close
         self.manager.save_polygons()
         self.accept()
 

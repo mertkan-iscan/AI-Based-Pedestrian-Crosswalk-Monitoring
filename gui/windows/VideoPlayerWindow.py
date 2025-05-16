@@ -16,7 +16,7 @@ from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricReporter import MetricReporter
 from utils.benchmark.MetricSignals import signals
 from utils.benchmark.ReportManager import ReportManager
-from utils.region.RegionManager import RegionManager
+from utils.RegionManager import RegionManager
 
 
 class ScalableLabel(QtWidgets.QLabel):

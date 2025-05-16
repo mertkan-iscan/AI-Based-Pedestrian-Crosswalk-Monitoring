@@ -8,7 +8,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from crosswalk_inspector.objects.DetectedObject import DetectedObject
 from detection.Inference import run_inference
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
-from utils.region.RegionManager import RegionManager
+from utils.RegionManager import RegionManager
 from crosswalk_inspector.GlobalState import GlobalState
 from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals

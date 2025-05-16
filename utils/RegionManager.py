@@ -1,8 +1,7 @@
 import itertools
 import json
 from pathlib import Path
-from crosswalk_inspector.CrosswalkPack import CrosswalkPack
-from utils.region.RegionIndexer import RegionIndexer
+from crosswalk_inspector.objects.CrosswalkPack import CrosswalkPack
 
 class RegionManager:
 
@@ -167,23 +166,32 @@ class RegionManager:
 
     def _save_to_file(self, file_path):
         data = {"crosswalk_packs": []}
+
         for pack in self.crosswalk_packs:
+
             pd = {
                 "id": pack.id,
                 "crosswalk": pack.crosswalk.copy() if pack.crosswalk else None,
                 "car_wait": [p.copy() for p in pack.car_wait],
                 "pedes_wait": [p.copy() for p in pack.pedes_wait]
             }
+
             arr = []
             for tl in pack.traffic_light:
+
                 entry = next((e for e in arr if e["id"] == tl["id"] and e["type"] == tl["light_type"]), None)
+
                 if not entry:
                     entry = {"id": tl["id"], "type": tl["light_type"], "lights": {}}
                     arr.append(entry)
+
                 entry["lights"][tl["signal_color"]] = {"center": tl.get("center"), "radius": tl.get("radius")}
+
             if arr:
                 pd["traffic_lights"] = arr
+
             data["crosswalk_packs"].append(pd)
+
         data.update(self.other_regions)
         Path(file_path).write_text(json.dumps(data, indent=2))
 

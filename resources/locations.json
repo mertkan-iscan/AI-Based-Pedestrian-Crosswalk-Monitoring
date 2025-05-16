@@ -122,5 +122,10 @@
         "name": "axssetr",
         "polygons_file": "resources\\location_regions\\region_polygons_axssetr.json",
         "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4"
+    },
+    {
+        "name": "istanbul nuh kuyusu",
+        "stream_url": "https://hls.ibb.gov.tr/tkm2/hls/473.stream/chunklist.m3u8",
+        "polygons_file": "resources\\location_regions\\region_polygons_istanbul_nuh_kuyusu.json"
     }
 ]
