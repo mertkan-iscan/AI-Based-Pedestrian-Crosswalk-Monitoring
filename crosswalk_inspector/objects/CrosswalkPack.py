@@ -15,11 +15,9 @@ class CrosswalkPack:
         self.crosswalk = crosswalk
         self.pedes_wait = pedes_wait or []
         self.car_wait = car_wait or []
-        # flat list of all circles, each with "id", "light_type", "signal_color", etc.
         self.traffic_light = traffic_light or []
         self.is_signalized = bool(self.traffic_light)
 
-        # integer counter for traffic‐light groups, reset per pack
         existing_ids = [tl["id"] for tl in self.traffic_light]
         self._next_tl_id = max(existing_ids, default=0) + 1
 
@@ -58,15 +56,19 @@ class CrosswalkPack:
             "crosswalk": self.crosswalk,
             "pedes_wait": self.pedes_wait,
             "car_wait": self.car_wait,
-            "traffic_light": self.traffic_light,
+            "traffic_lights": self.traffic_light,
         }
 
     @classmethod
     def from_dict(cls, data):
-        return cls(
+        pack = cls(
             data.get("id"),
             data.get("crosswalk"),
             data.get("pedes_wait", []),
             data.get("car_wait", []),
-            data.get("traffic_light", []),
+            data.get("traffic_lights", []),
         )
+
+        pack.is_signalized = bool(data.get("traffic_lights", []))
+        #print(pack.is_signalized)
+        return pack

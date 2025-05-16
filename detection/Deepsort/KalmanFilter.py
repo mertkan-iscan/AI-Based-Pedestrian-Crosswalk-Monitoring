@@ -13,7 +13,7 @@ class KalmanFilter:
         self.R = np.eye(2) * 1.0
         self.Q = np.eye(4) * 0.01
 
-    def predict(self, dt: float = 1.0):
+    def predict(self, dt):
         # rebuild transition matrix for time step dt
         self.F = np.array([
             [1, 0, dt, 0],

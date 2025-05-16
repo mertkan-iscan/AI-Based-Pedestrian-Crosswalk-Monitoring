@@ -55,7 +55,6 @@ class EntityState:
             self._entries[name] = now
         elif not inside and name in self._entries:
             entry = self._entries.pop(name)
-            # record time spent in that region
             self.durations[name] = (now - entry).total_seconds()
         if inside:
             self.current_regions.add(name)
@@ -81,7 +80,6 @@ class CrosswalkPackMonitor:
             pt = det.foot_coordinate or det.centroid_coordinate
             if pt is None:
                 continue
-            # update region entries/exits
             for i, reg in enumerate(self.ped_wait_regions):
                 st.update_region(f"ped_wait_{i}", reg.contains(pt), now)
             st.update_region("crosswalk", self.crosswalk.contains(pt), now)
@@ -91,7 +89,7 @@ class CrosswalkPackMonitor:
 
 class CrosswalkInspectThread(QtCore.QThread):
     inspection_ready = QtCore.pyqtSignal(list, float)
-    error_signal = QtCore.pyqtSignal(str)
+    error_signal     = QtCore.pyqtSignal(str)
 
     # thresholds
     T_PED_WAIT = 2.0
@@ -100,21 +98,42 @@ class CrosswalkInspectThread(QtCore.QThread):
                  tl_objects: list[TrafficLight], check_period: float,
                  homography_inv=None, parent=None):
         super().__init__(parent)
-        self.editor = editor
-        self.state = global_state
-        self.tl_objects = tl_objects
+
+        # ——— simple print logging for load events ———
+        print("Loading Crosswalk Packs:")
+        for pack in editor.crosswalk_packs:
+            print(f"  Pack ID: {pack.id}")
+            print(f"    Crosswalk points: {pack.crosswalk['points']}")
+            print(f"    Ped_wait regions: {[p['points'] for p in pack.pedes_wait]}")
+            print(f"    Car_wait regions: {[p['points'] for p in pack.car_wait]}")
+
+        print("Loading Traffic Light Objects:")
+        for tl in tl_objects:
+            colors = list(tl.lights.keys())
+            print(f"  TL ID: {tl.id}, Pack ID: {tl.pack_id}, Colors: {colors}, Initial status: {tl.status}")
+
+        self.editor      = editor
+        self.state       = global_state
+        self.tl_objects  = tl_objects
         self.check_period = check_period
         self._last_check = 0.0
-        self._running = True
-        self.H_inv = homography_inv
-        # map pack.id to pack for signalization info
+        self._running    = True
+        self.H_inv       = homography_inv
+
+        # map pack.id → pack for quick lookup :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
         self.packs = {pack.id: pack for pack in editor.crosswalk_packs}
+
         # remember last light state
         self._last_tl_status = {tl.id: None for tl in tl_objects}
-        # monitors per pack
+
+        # build one monitor per pack
         self.monitors = {
             pack.id: CrosswalkPackMonitor(
-                pack.id, pack.crosswalk["points"], pack.pedes_wait, pack.car_wait, homography_inv
+                pack.id,
+                pack.crosswalk["points"],
+                pack.pedes_wait,
+                pack.car_wait,
+                homography_inv
             ) for pack in editor.crosswalk_packs
         }
 
@@ -133,11 +152,9 @@ class CrosswalkInspectThread(QtCore.QThread):
                 now_ts = datetime.fromtimestamp(ts)
                 timestr = now_ts.strftime("%H:%M:%S.%f")[:-3]
 
-                # update entity states for regions
                 for mon in self.monitors.values():
                     mon.process_frame(objects, now_ts, self.tl_objects)
 
-                # gather current green/red states
                 tl_status = {
                     tl.pack_id: tl.status
                     for tl in self.tl_objects
@@ -145,13 +162,13 @@ class CrosswalkInspectThread(QtCore.QThread):
                 }
 
                 lines = []
-                # log any light changes
                 any_change = False
                 for tl in self.tl_objects:
                     pack = self.packs.get(tl.pack_id)
                     if pack and pack.is_signalized and self._last_tl_status[tl.id] != tl.status:
                         any_change = True
                         break
+
                 if any_change:
                     lines.append(f"[{timestr}] Traffic Light Statuses:")
                     for tl in self.tl_objects:
@@ -160,15 +177,15 @@ class CrosswalkInspectThread(QtCore.QThread):
                             lines.append(f"  Pack:{tl.pack_id} Light:{tl.id} Status:{tl.status}")
                             self._last_tl_status[tl.id] = tl.status
 
-                # detect crossing pass events: no-region -> crosswalk -> no-region
                 for pack_id, mon in self.monitors.items():
                     status = tl_status.get(pack_id)
                     for tid, st in mon.entities.items():
                         if st.class_name != 'person':
-
                             dur = st.durations.pop('crosswalk', None)
                             if dur is not None and status == 'green':
-                                lines.append(f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)")
+                                lines.append(
+                                    f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)"
+                                )
 
                 if lines:
                     print("\n".join(lines), flush=True)

@@ -81,8 +81,6 @@ class RegionManager:
         poly_id = len(self.other_regions[region_type]) + 1
         self.other_regions[region_type].append({"id": poly_id, "points": points})
 
-    def build_indexer(self):
-        return RegionIndexer(self.crosswalk_packs, self.other_regions)
 
     def _load_from_file(self, file_path):
         p = Path(file_path)
