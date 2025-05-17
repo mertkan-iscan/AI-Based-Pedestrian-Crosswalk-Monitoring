@@ -81,21 +81,27 @@ class DetectionThread(QThread):
             # post-processing (tracking + object list)
             t_post_start = time.time()
 
-            tracks = self.tracker.update(
+            tracks_map = self.tracker.update(
                 detections,
                 frame=masked,
                 timestamp=display_time,
             )
 
             detected_objects = []
-            for tid, (centroid, bbox) in tracks.items():
-
+            for tid, (centroid, bbox) in tracks_map.items():
                 x1, y1, x2, y2, cls_idx = bbox[:5]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 
-                detected_objects.append(
-                    DetectedObject(tid, obj_type, (x1, y1, x2, y2), centroid)
-                )
+                obj = DetectedObject(tid, obj_type, (x1, y1, x2, y2), centroid)
+
+                # attach the two distances from the matching Track
+                for t in self.tracker.tracks:
+                    if t.track_id == tid:
+                        obj.motion_distance = getattr(t, 'motion_distance', None)
+                        obj.appearance_distance = getattr(t, 'appearance_distance', None)
+                        break
+
+                detected_objects.append(obj)
 
             t_post_end = time.time()
             signals.postproc_logged.emit(t_post_end - t_post_start)

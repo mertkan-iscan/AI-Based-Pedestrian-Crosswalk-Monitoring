@@ -13,7 +13,21 @@ class KalmanFilter:
         self.R = np.eye(2) * 1.0
         self.Q = np.eye(4) * 0.01
 
-    def predict(self, dt):
+    def predict(self):
+
+        # rebuild transition matrix for time step dt
+        self.F = np.array([
+            [1, 0, 1, 0],
+            [0, 1, 0, 1],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ], dtype=float)
+
+        self.x = self.F @ self.x
+        self.P = self.F @ self.P @ self.F.T + self.Q
+        return self.x
+
+    def predict_with_dt(self, dt):
         # rebuild transition matrix for time step dt
         self.F = np.array([
             [1, 0, dt, 0],
@@ -21,6 +35,7 @@ class KalmanFilter:
             [0, 0, 1,  0],
             [0, 0, 0,  1]
         ], dtype=float)
+
         self.x = self.F @ self.x
         self.P = self.F @ self.P @ self.F.T + self.Q
         return self.x
@@ -34,3 +49,13 @@ class KalmanFilter:
         I = np.eye(self.F.shape[0])
         self.P = (I - K @ self.H) @ self.P
         return self.x
+
+    def gating_distance(self, dets):
+        x = self.x[:2]
+        S = self.H @ self.P @ self.H.T + self.R
+        invS = np.linalg.inv(S)
+        dists = []
+        for det in dets:
+            y = np.array(det) - x
+            dists.append(float(y.T @ invS @ y))
+        return np.array(dists)

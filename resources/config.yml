@@ -11,8 +11,8 @@ deepsort:
   max_disappeared: 40
   max_distance: 50
   device: "cuda"
-  appearance_weight: 0.6
-  motion_weight: 0.4
+  appearance_weight: 0.5
+  motion_weight: 0.5
 
 detection_thread:
   detection_fps: 10

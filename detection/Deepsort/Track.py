@@ -18,16 +18,25 @@ class Track:
         self.last_timestamp = None
         self.appearance_feature = feature if feature is not None else None
 
-    def predict(self, timestamp: float = None):
+    def predict(self):
+
+        state = self.kalman_filter.predict()
+        self.centroid = (int(state[0, 0]), int(state[1, 0]))
+
+        return self.centroid
+
+
+    def predict_with_dt(self, timestamp: float = None):
 
         if timestamp is not None and self.last_timestamp is not None:
             dt = timestamp - self.last_timestamp
         else:
             dt = 1.0 / 20.0
 
-        state = self.kalman_filter.predict(dt)
+        state = self.kalman_filter.predict_with_dt(dt)
         self.centroid = (int(state[0, 0]), int(state[1, 0]))
         self.last_timestamp = timestamp or self.last_timestamp
+
         return self.centroid
 
     def update(self, bbox, calibrated_centroid, feature=None, timestamp: float = None):

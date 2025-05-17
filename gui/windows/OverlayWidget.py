@@ -13,6 +13,11 @@ class OverlayWidget(QWidget):
         self.scaled_pixmap_size = (1, 1)
         self.H_inv = None
         self._first_seen = {}
+        # cost parameters
+        self.motion_weight = 1.0
+        self.appearance_weight = 1.0
+        self.max_distance = None
+        # widget attributes
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
@@ -29,6 +34,14 @@ class OverlayWidget(QWidget):
     def set_inverse_homography(self, H_inv):
         self.H_inv = np.asarray(H_inv) if H_inv is not None else None
 
+    def set_cost_params(self, motion_weight, appearance_weight, max_distance):
+        """
+        Set weights and threshold for combined cost highlighting.
+        """
+        self.motion_weight = motion_weight
+        self.appearance_weight = appearance_weight
+        self.max_distance = max_distance
+
     def _to_pixel(self, pt):
         if self.H_inv is None:
             return pt
@@ -44,20 +57,22 @@ class OverlayWidget(QWidget):
         now = time.time()
         ow, oh = self.original_frame_size
         sw, sh = self.scaled_pixmap_size
-        scale = min(sw / ow, sh / oh)
+        scale = min(sw / ow, sh / oh) if ow and oh else 1.0
         off_x = (self.width() - ow * scale) / 2
         off_y = (self.height() - oh * scale) / 2
 
         for obj in self.detections:
+            # bounding-box color by object type
             first_seen = self._first_seen.get(obj.id, 0)
             if now - first_seen < 1.0:
-                color = QtGui.QColor(255, 0, 0)
+                box_color = QtGui.QColor(255, 0, 0)
             elif obj.object_type == "person":
-                color = QtGui.QColor(255, 255, 0)
+                box_color = QtGui.QColor(255, 255, 0)
             else:
-                color = QtGui.QColor(0, 0, 255)
+                box_color = QtGui.QColor(0, 0, 255)
 
-            pen_box = QtGui.QPen(color, 2)
+            # draw box
+            pen_box = QtGui.QPen(box_color, 2)
             painter.setPen(pen_box)
             x1, y1, x2, y2 = obj.bbox
             rect = QtCore.QRectF(
@@ -67,11 +82,44 @@ class OverlayWidget(QWidget):
                 (y2 - y1) * scale
             )
             painter.drawRect(rect)
+
+            # draw ID
             painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))
             text_pos = rect.topLeft() + QtCore.QPointF(0, -6)
             painter.drawText(text_pos, f"ID: {obj.id}")
 
-            if obj.centroid_coordinate is not None:
+            # draw motion & appearance distances with background and highlight
+            motion = getattr(obj, 'motion_distance', None)
+            app = getattr(obj, 'appearance_distance', None)
+            if motion is not None and app is not None:
+                # compute combined cost if threshold provided
+                cost_highlight = False
+                if self.max_distance is not None:
+                    combined = self.motion_weight * motion + self.appearance_weight * app
+                    cost_highlight = (combined > self.max_distance)
+                # prepare text and background
+                cost_text = f"M:{motion:.1f} A:{app:.2f}"
+                metrics = painter.fontMetrics()
+                w = metrics.horizontalAdvance(cost_text)
+                h = metrics.height()
+                cost_pos = rect.topLeft() + QtCore.QPointF(0, 16)
+                bg_rect = QtCore.QRectF(
+                    cost_pos.x() - 2,
+                    cost_pos.y() - h,
+                    w + 4,
+                    h + 4
+                )
+                # choose background and pen
+                if cost_highlight:
+                    painter.fillRect(bg_rect, QtGui.QColor(255, 0, 0, 160))
+                    painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255), 2))
+                else:
+                    painter.fillRect(bg_rect, QtGui.QColor(0, 0, 0, 100))
+                    painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))
+                painter.drawText(cost_pos, cost_text)
+
+            # draw transformed centroid and foot points as before
+            if hasattr(obj, 'centroid_coordinate') and obj.centroid_coordinate is not None:
                 cx, cy = self._to_pixel(obj.centroid_coordinate)
                 sx, sy = off_x + cx * scale, off_y + cy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
@@ -83,7 +131,7 @@ class OverlayWidget(QWidget):
                 painter.setPen(old_pen)
                 painter.setBrush(old_brush)
 
-            if obj.foot_coordinate is not None:
+            if hasattr(obj, 'foot_coordinate') and obj.foot_coordinate is not None:
                 fx, fy = obj.foot_coordinate
                 sx, sy = off_x + fx * scale, off_y + fy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
@@ -94,3 +142,5 @@ class OverlayWidget(QWidget):
                 painter.drawText(QtCore.QPointF(sx + 6, sy), f"FP: {obj.id}")
                 painter.setPen(old_pen)
                 painter.setBrush(old_brush)
+
+        painter.end()
