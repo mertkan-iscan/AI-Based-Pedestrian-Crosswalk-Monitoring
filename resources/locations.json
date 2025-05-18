@@ -29,7 +29,7 @@
     },
     {
         "name": "mevlana video 1",
-        "video_path": "D:\\CSE_492_project\\konya_live_videos\\mevlana_rainy_night.mp4",
+        "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rain_start_morning_.mp4",
         "polygons_file": "resources\\location_regions\\region_polygons_mevlana_video_1.json",
         "homography_matrix": [
             [

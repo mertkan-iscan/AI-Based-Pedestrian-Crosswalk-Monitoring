@@ -9,7 +9,7 @@ database:
 
 deepsort:
   max_disappeared: 40
-  max_distance: 50
+  max_distance: 0.8
   device: "cuda"
   appearance_weight: 0.5
   motion_weight: 0.5

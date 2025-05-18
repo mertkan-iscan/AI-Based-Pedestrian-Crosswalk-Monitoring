@@ -81,10 +81,13 @@ class DetectionThread(QThread):
             # post-processing (tracking + object list)
             t_post_start = time.time()
 
+            # compute desired emit timestamp (video timestamp + delay)
+            emit_time = display_time + self.delay
+
             tracks_map = self.tracker.update(
                 detections,
                 frame=masked,
-                timestamp=display_time,
+                timestamp=emit_time,
             )
 
             detected_objects = []
@@ -106,8 +109,7 @@ class DetectionThread(QThread):
             t_post_end = time.time()
             signals.postproc_logged.emit(t_post_end - t_post_start)
 
-            # compute desired emit timestamp (video timestamp + delay)
-            emit_time = display_time + self.delay
+
 
             # schedule emission (non-blocking)
             schedule_delay = emit_time - time.time()
