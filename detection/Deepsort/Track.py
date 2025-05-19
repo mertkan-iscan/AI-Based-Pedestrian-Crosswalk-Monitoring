@@ -54,8 +54,10 @@ class Track:
         self.centroid = calibrated_centroid
         self.kalman_filter.update(calibrated_centroid)
         self.last_timestamp = timestamp or self.last_timestamp
+
         if feature is not None:
             self.feature_gallery.append(feature.astype(np.float32))
+
         self.time_since_update = 0
         self.age += 1
 

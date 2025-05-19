@@ -1,36 +1,48 @@
+import os
 import cv2
 import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
-
 from ultralytics import YOLO
 from utils.ConfigManager import ConfigManager
 
+warnings.filterwarnings("ignore", category=FutureWarning)
 
-config_manager = ConfigManager()
-yolo_cfg = config_manager.get_yolo_config()
+# 1) Load the YAML you actually edited
+cfg_path = os.path.join(os.getcwd(), "resources/config.yml")
+yolo_cfg = ConfigManager(config_path=cfg_path).get_yolo_config()
 
+# 2) Build model
 model = YOLO(yolo_cfg["version"])
 model.to(yolo_cfg["device"])
 
-imgsz = yolo_cfg.get("imgsz")
+# 3) Read thresholds (with fallbacks)
+imgsz          = yolo_cfg.get("imgsz", 640)
+classes        = yolo_cfg.get("classes", [])
+conf_global    = yolo_cfg.get("conf", 0.25)
+conf_per_class = yolo_cfg.get("conf_per_class", {})
 
 def run_inference(img):
-
-    frame_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    results = model(frame_rgb, classes=[0,1,2,3,5,7], verbose=False, imgsz=imgsz)
-
-    result = results[0]
-
-    boxes_xyxy = result.boxes.xyxy.cpu().numpy()
-    class_ids = result.boxes.cls.cpu().numpy()
-    confidences = result.boxes.conf.cpu().numpy()
+    frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    results = model(
+        frame,
+        classes=classes,
+        conf=conf_global,  # built-in filter
+        imgsz=imgsz,
+        verbose=False
+    )
+    r = results[0]
+    boxes       = r.boxes.xyxy.cpu().numpy()
+    class_ids   = r.boxes.cls.cpu().numpy().astype(int)
+    confidences = r.boxes.conf.cpu().numpy()
 
     detections = []
-    for i, box in enumerate(boxes_xyxy):
-        x1, y1, x2, y2 = box
-        cls = int(class_ids[i])
-        conf = float(confidences[i])
-        detections.append((int(x1), int(y1), int(x2), int(y2), cls, conf))
-
+    for box, cls, conf in zip(boxes, class_ids, confidences):
+        # per-class thr or global
+        thr = conf_per_class.get(cls, conf_global)
+        if conf >= thr:
+            x1, y1, x2, y2 = box
+            detections.append((
+                int(x1), int(y1), int(x2), int(y2),
+                cls,
+                float(conf)
+            ))
     return detections

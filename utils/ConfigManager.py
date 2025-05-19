@@ -1,9 +1,8 @@
-# ConfigManager.py
-
 import yaml
 import os
 
 class ConfigManager:
+
     DEFAULT_CONFIG_PATH = "resources/config.yml"
 
     def __init__(self, config_path=None):
@@ -23,8 +22,6 @@ class ConfigManager:
         with open(self.config_path, 'r') as file:
             self.config = yaml.safe_load(file)
 
-
-
     def get_yolo_config(self):
         return self.config.get("yolo", {})
 
@@ -43,8 +40,6 @@ class ConfigManager:
     def get_crosswalk_monitor_config(self):
         return self.config.get("crosswalk_monitor", {})
 
-
-
     def get_detection_fps(self):
         return self.get_detection_config().get("detection_fps")
 
@@ -53,8 +48,6 @@ class ConfigManager:
 
     def get_traffic_light_fps(self):
         return self.get_crosswalk_monitor_config().get("traffic_light_fps")
-
-
 
     def update_config(self, section, parameter, value):
         if section in self.config and parameter in self.config[section]:

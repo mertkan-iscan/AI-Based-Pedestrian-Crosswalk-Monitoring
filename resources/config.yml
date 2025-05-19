@@ -3,6 +3,12 @@ yolo:
   version: yolov5xu.pt
   imgsz: 640
 
+  conf: 0.20
+  classes: [0,1,2,3,5,7]
+  conf_per_class:
+    0: 0.50
+    2: 0.70
+  
 database:
   db_file: resources/object_paths.db
   record_paths: False

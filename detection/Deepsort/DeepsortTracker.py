@@ -84,66 +84,91 @@ class DeepSortTracker:
         features=None,
         timestamp: float | None = None,
     ):
+        # If no detections, mark existing tracks and prune
         if len(rects) == 0:
             for track in self.tracks:
                 track.time_since_update += 1
             self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
             return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}
 
+        # Build detection list: each entry is (calibrated_centroid, bbox_with_conf, feature)
         detections = []
         if features is None and frame is not None:
-            bboxes, cents = [], []
+            # Pre-extract appearance features in batch
+            bboxes_for_feat = []
+            cents = []
             for rect in rects:
+                # Unpack rect: support (x1,y1,x2,y2,cls,conf) or (x1,y1,x2,y2,cls)
                 if len(rect) == 6:
-                    x1, y1, x2, y2, cls, _ = rect
+                    x1, y1, x2, y2, cls, conf = rect
                 else:
                     x1, y1, x2, y2, cls = rect
+                    conf = None
+                # Compute pixel centroid
                 cX, cY = int((x1 + x2) / 2.0), int((y1 + y2) / 2.0)
-                pixel_centroid = (cX, cY)
+                # Apply homography if provided
                 if self.homography_matrix is not None:
-                    calibrated = self.calibrate_point(pixel_centroid, self.homography_matrix)
+                    calibrated = self.calibrate_point((cX, cY), self.homography_matrix)
                 else:
-                    calibrated = pixel_centroid
+                    calibrated = (cX, cY)
                 cents.append(calibrated)
-                bboxes.append((x1, y1, x2, y2))
+                bboxes_for_feat.append((x1, y1, x2, y2))
 
+            # Extract appearance features in parallel
             future = self.executor.submit(
-                self.feature_extractor.extract_features_batch, frame, bboxes
+                self.feature_extractor.extract_features_batch,
+                frame,
+                bboxes_for_feat
             )
             batch_features = future.result()
 
+            # Assemble detections with features
             for i, rect in enumerate(rects):
                 if len(rect) == 6:
-                    x1, y1, x2, y2, cls, _ = rect
+                    x1, y1, x2, y2, cls, conf = rect
                 else:
                     x1, y1, x2, y2, cls = rect
-                detections.append((cents[i], (x1, y1, x2, y2, cls), batch_features[i]))
+                    conf = None
+                detections.append((
+                    cents[i],
+                    (x1, y1, x2, y2, cls, conf),
+                    batch_features[i]
+                ))
         else:
+            # Either features provided or no frame
             for i, rect in enumerate(rects):
                 if len(rect) == 6:
-                    x1, y1, x2, y2, cls, _ = rect
+                    x1, y1, x2, y2, cls, conf = rect
                 else:
                     x1, y1, x2, y2, cls = rect
+                    conf = None
+                # Compute and calibrate centroid
                 cX, cY = int((x1 + x2) / 2.0), int((y1 + y2) / 2.0)
-                pixel_centroid = (cX, cY)
                 if self.homography_matrix is not None:
-                    calibrated = self.calibrate_point(pixel_centroid, self.homography_matrix)
+                    calibrated = self.calibrate_point((cX, cY), self.homography_matrix)
                 else:
-                    calibrated = pixel_centroid
+                    calibrated = (cX, cY)
+                # Determine appearance feature
                 if features is not None:
-                    det_feature = features[i]
+                    det_feat = features[i]
                 else:
-                    det_feature = self.feature_extractor.extract_features([frame[y1:y2, x1:x2]])[0]
-                detections.append((calibrated, (x1, y1, x2, y2, cls), det_feature))
+                    crop = frame[y1:y2, x1:x2]
+                    det_feat = self.feature_extractor.extract_features([crop])[0]
+                detections.append((
+                    calibrated,
+                    (x1, y1, x2, y2, cls, conf),
+                    det_feat
+                ))
 
+        # Compute association costs
         cost_matrix, motion_matrix, appearance_matrix = self._compute_cost(detections, timestamp)
-
         if cost_matrix.size > 0:
             rows, cols = linear_sum_assignment(cost_matrix)
         else:
-            rows, cols = np.array([]), np.array([])
+            rows, cols = np.array([], dtype=int), np.array([], dtype=int)
 
         assigned_tracks, assigned_dets = set(), set()
+        # Update matched tracks
         for row, col in zip(rows, cols):
             if cost_matrix[row, col] > self.max_distance:
                 continue
@@ -151,31 +176,36 @@ class DeepSortTracker:
             track.motion_distance = motion_matrix[row, col]
             track.appearance_distance = appearance_matrix[row, col]
             track.update(
-                detections[col][1],
-                detections[col][0],
+                detections[col][1],      # bbox includes conf now
+                detections[col][0],      # calibrated centroid
                 feature=detections[col][2],
                 timestamp=timestamp,
             )
             assigned_tracks.add(row)
             assigned_dets.add(col)
 
+        # Mark unmatched existing tracks as missed
         for i, track in enumerate(self.tracks):
             if i not in assigned_tracks:
                 track.time_since_update += 1
 
+        # Prune disappeared tracks
         self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
 
+        # Create new tracks for unmatched detections
         for j in range(len(detections)):
             if j not in assigned_dets:
+                bbox_j, feat_j, cent_j = detections[j][1], detections[j][2], detections[j][0]
                 new_track = Track(
                     self.next_track_id,
-                    detections[j][1],
-                    detections[j][0],
-                    feature=detections[j][2],
+                    bbox_j,            # stores conf as well
+                    cent_j,
+                    feature=feat_j,
                     nn_budget=self.nn_budget,
                 )
                 new_track.last_timestamp = timestamp
                 self.tracks.append(new_track)
                 self.next_track_id += 1
 
+        # Return mapping of track_id to (centroid, bbox_with_conf)
         return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}

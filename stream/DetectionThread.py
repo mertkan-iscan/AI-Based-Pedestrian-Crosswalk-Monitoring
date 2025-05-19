@@ -63,41 +63,37 @@ class DetectionThread(QThread):
             except queue.Empty:
                 continue
 
-            # queue wait
             t_dequeue = time.time()
             signals.queue_wait_logged.emit(t_dequeue - orig_capture)
 
-            # mask blackout
             masked = self._mask_blackout(frame)
 
-            # inference timing
             t_inf_start = time.time()
             detections = run_inference(masked)
             t_inf_end = time.time()
-            inference_time = t_inf_end - t_inf_start
-            signals.detection_logged.emit(inference_time)
+            signals.detection_logged.emit(t_inf_end - t_inf_start)
 
-
-            # post-processing (tracking + object list)
             t_post_start = time.time()
-
-            # compute desired emit timestamp (video timestamp + delay)
-            emit_time = display_time + self.delay
-
             tracks_map = self.tracker.update(
                 detections,
                 frame=masked,
-                timestamp=emit_time,
+                timestamp=display_time,
             )
 
             detected_objects = []
             for tid, (centroid, bbox) in tracks_map.items():
-                x1, y1, x2, y2, cls_idx = bbox[:5]
+                x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 
-                obj = DetectedObject(tid, obj_type, (x1, y1, x2, y2), centroid)
+                obj = DetectedObject(
+                    tid,
+                    obj_type,
+                    (int(x1), int(y1), int(x2), int(y2)),
+                    centroid
+                )
 
-                # attach the two distances from the matching Track
+                obj.confidence = float(conf)
+
                 for t in self.tracker.tracks:
                     if t.track_id == tid:
                         obj.motion_distance = getattr(t, 'motion_distance', None)
@@ -105,21 +101,15 @@ class DetectionThread(QThread):
                         break
 
                 detected_objects.append(obj)
+            signals.postproc_logged.emit(time.time() - t_post_start)
 
-            t_post_end = time.time()
-            signals.postproc_logged.emit(t_post_end - t_post_start)
-
-
-
-            # schedule emission (non-blocking)
+            emit_time = display_time + self.delay
             schedule_delay = emit_time - time.time()
             signals.scheduling_logged.emit(schedule_delay)
-
             timer = threading.Timer(
                 schedule_delay,
                 lambda objs=detected_objects, cap=orig_capture: self._emit_detections(objs, cap)
             )
-
             timer.daemon = True
             timer.start()
 
