@@ -41,7 +41,7 @@ class DetectionThread(QThread):
             device            = cfg.get("device"),
             appearance_weight = cfg.get("appearance_weight"),
             motion_weight     = cfg.get("motion_weight"),
-            homography_matrix = homography_matrix,
+            homography_matrix = homography_matrix
         )
 
         self.editor = RegionManager(polygons_file)

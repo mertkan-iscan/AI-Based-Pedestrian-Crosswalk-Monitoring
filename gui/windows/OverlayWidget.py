@@ -99,7 +99,7 @@ class OverlayWidget(QWidget):
             if motion is not None and app is not None:
                 combined = self.motion_weight * motion + self.appearance_weight * app
                 highlight = self.max_distance is not None and combined > self.max_distance
-                cost_text = f"M:{motion:.1f} A:{app:.2f}"
+                cost_text = f"M:{motion:.2f} A:{app:.2f}"
                 w = fm.horizontalAdvance(cost_text)
                 h = fm.height()
                 cost_pos = rect.topLeft() + QtCore.QPointF(0, 16)

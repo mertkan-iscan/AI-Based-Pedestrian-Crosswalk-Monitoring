@@ -1,12 +1,11 @@
-# DeepsortTracker.py
 from __future__ import annotations
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from concurrent.futures import ThreadPoolExecutor
+
 from detection.Deepsort.CNNFeatureExtractor import CNNFeatureExtractor
 from detection.Deepsort.Track import Track
-
 
 class DeepSortTracker:
     def __init__(
@@ -30,13 +29,13 @@ class DeepSortTracker:
         self.feature_extractor = CNNFeatureExtractor(device=device)
         self.executor = ThreadPoolExecutor(max_workers=1)
 
-    @staticmethod
-    def calibrate_point(point, homography_matrix):
+    def calibrate_point(self, point, homography_matrix):
         pt = np.array([point[0], point[1], 1.0], dtype=np.float32)
         transformed = homography_matrix @ pt
-        if transformed[2] != 0.0:
-            return transformed[0] / transformed[2], transformed[1] / transformed[2]
-        return transformed[0], transformed[1]
+        if transformed[2] != 0:
+            return (transformed[0] / transformed[2], transformed[1] / transformed[2])
+        else:
+            return (transformed[0], transformed[1])
 
     def _compute_cost(self, detections, timestamp: float):
         n_tracks = len(self.tracks)
@@ -61,8 +60,8 @@ class DeepSortTracker:
 
             for j, (det_centroid, _, det_feat) in enumerate(detections):
                 m_dist = (
-                    np.linalg.norm(np.asarray(pred_centroid) - np.asarray(det_centroid))
-                    / diag_norm
+                        np.linalg.norm(np.asarray(pred_centroid) - np.asarray(det_centroid))
+                        / diag_norm
                 )
                 motion_matrix[i, j] = m_dist
 
@@ -78,11 +77,11 @@ class DeepSortTracker:
         return cost_matrix, motion_matrix, appearance_matrix
 
     def update(
-        self,
-        rects,
-        frame=None,
-        features=None,
-        timestamp: float | None = None,
+            self,
+            rects,
+            frame=None,
+            features=None,
+            timestamp: float | None = None,
     ):
         # If no detections, mark existing tracks and prune
         if len(rects) == 0:
@@ -176,8 +175,8 @@ class DeepSortTracker:
             track.motion_distance = motion_matrix[row, col]
             track.appearance_distance = appearance_matrix[row, col]
             track.update(
-                detections[col][1],      # bbox includes conf now
-                detections[col][0],      # calibrated centroid
+                detections[col][1],  # bbox includes conf now
+                detections[col][0],  # calibrated centroid
                 feature=detections[col][2],
                 timestamp=timestamp,
             )
@@ -198,7 +197,7 @@ class DeepSortTracker:
                 bbox_j, feat_j, cent_j = detections[j][1], detections[j][2], detections[j][0]
                 new_track = Track(
                     self.next_track_id,
-                    bbox_j,            # stores conf as well
+                    bbox_j,  # stores conf as well
                     cent_j,
                     feature=feat_j,
                     nn_budget=self.nn_budget,
