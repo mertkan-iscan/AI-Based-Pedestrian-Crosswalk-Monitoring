@@ -33,18 +33,18 @@
         "polygons_file": "resources\\location_regions\\region_polygons_mevlana_video_1.json",
         "homography_matrix": [
             [
-                -0.2462858750941935,
-                -1.1637050297950582,
-                441.85226893247426
+                -0.2531925654659738,
+                -1.2277162559902661,
+                454.7963282121629
             ],
             [
-                -0.16474845574812802,
-                -2.1307089859375985,
-                687.9463400502167
+                -0.1547214441084034,
+                -2.2502515793496016,
+                697.3545105747837
             ],
             [
-                -0.00035398539846931046,
-                -0.004039036362947235,
+                -0.00033656510051598083,
+                -0.004266601798077047,
                 1.0
             ]
         ],
@@ -65,7 +65,7 @@
         "name": "yeni meral video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/sunny_noon_cropped.mp4",
         "polygons_file": "resources\\location_regions\\region_polygons_yeni_meral_video_1.json",
-        "birds_eye_image": "resources\\satellite_images\\yeni_meral_bird.png",
+        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\yeni_meral_bird_cropped.png",
         "homography_matrix": [
             [
                 -0.9587665396597553,

@@ -74,6 +74,7 @@ class DetectionThread(QThread):
             signals.detection_logged.emit(t_inf_end - t_inf_start)
 
             t_post_start = time.time()
+
             tracks_map = self.tracker.update(
                 detections,
                 frame=masked,
@@ -81,17 +82,18 @@ class DetectionThread(QThread):
             )
 
             detected_objects = []
-            for tid, (centroid, bbox) in tracks_map.items():
+            for tid, (calibrated_sp, bbox) in tracks_map.items():
                 x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 
+                # calibrated_sp is the surface_point used for tracking
                 obj = DetectedObject(
                     tid,
                     obj_type,
                     (int(x1), int(y1), int(x2), int(y2)),
-                    centroid
+                    calibrated_sp,  # still using this as centroid_coordinate
+                    calibrated_sp  # now also surface_point
                 )
-
                 obj.confidence = float(conf)
 
                 for t in self.tracker.tracks:
@@ -101,6 +103,8 @@ class DetectionThread(QThread):
                         break
 
                 detected_objects.append(obj)
+
+
             signals.postproc_logged.emit(time.time() - t_post_start)
 
             emit_time = display_time + self.delay

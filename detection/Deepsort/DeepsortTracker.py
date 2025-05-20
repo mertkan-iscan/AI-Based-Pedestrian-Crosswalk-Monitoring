@@ -44,7 +44,6 @@ class DeepSortTracker:
             empty = np.empty((0, n_dets), dtype=float)
             return empty, empty, empty
 
-        diag_norm = 848.528
         cost_matrix = np.zeros((n_tracks, n_dets), dtype=float)
         motion_matrix = np.zeros_like(cost_matrix)
         appearance_matrix = np.zeros_like(cost_matrix)
@@ -59,10 +58,7 @@ class DeepSortTracker:
                 gallery_arr = None
 
             for j, (det_centroid, _, det_feat) in enumerate(detections):
-                m_dist = (
-                        np.linalg.norm(np.asarray(pred_centroid) - np.asarray(det_centroid))
-                        / diag_norm
-                )
+                m_dist = np.linalg.norm(np.asarray(pred_centroid) - np.asarray(det_centroid))
                 motion_matrix[i, j] = m_dist
 
                 if det_feat is not None and gallery_arr is not None:
@@ -97,19 +93,21 @@ class DeepSortTracker:
             bboxes_for_feat = []
             cents = []
             for rect in rects:
-                # Unpack rect: support (x1,y1,x2,y2,cls,conf) or (x1,y1,x2,y2,cls)
                 if len(rect) == 6:
                     x1, y1, x2, y2, cls, conf = rect
                 else:
                     x1, y1, x2, y2, cls = rect
                     conf = None
-                # Compute pixel centroid
-                cX, cY = int((x1 + x2) / 2.0), int((y1 + y2) / 2.0)
-                # Apply homography if provided
+
+                # surface_point = bottom-center pixel of the box
+                spx = int((x1 + x2) / 2.0)
+                spy = int(y2)
+
                 if self.homography_matrix is not None:
-                    calibrated = self.calibrate_point((cX, cY), self.homography_matrix)
+                    calibrated = self.calibrate_point((spx, spy), self.homography_matrix)
                 else:
-                    calibrated = (cX, cY)
+                    calibrated = (spx, spy)
+
                 cents.append(calibrated)
                 bboxes_for_feat.append((x1, y1, x2, y2))
 
@@ -174,12 +172,14 @@ class DeepSortTracker:
             track = self.tracks[row]
             track.motion_distance = motion_matrix[row, col]
             track.appearance_distance = appearance_matrix[row, col]
+
             track.update(
                 detections[col][1],  # bbox includes conf now
                 detections[col][0],  # calibrated centroid
                 feature=detections[col][2],
                 timestamp=timestamp,
             )
+
             assigned_tracks.add(row)
             assigned_dets.add(col)
 

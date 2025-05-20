@@ -1,3 +1,5 @@
+# DetectedObject.py
+
 class DetectedObject:
 
     CLASS_NAMES = {
@@ -15,27 +17,21 @@ class DetectedObject:
         object_type,
         bbox,
         centroid_coordinate,
-        foot_coordinate=None,
+        surface_point,
         region="unknown"
     ):
         self.id = object_id
         self.object_type = object_type
-
         self.bbox = bbox
         self.centroid_coordinate = centroid_coordinate
-
-        # only store foot_coordinate for people
-        self.foot_coordinate = foot_coordinate if object_type == "person" else None
-
-        # region can be passed in or stays "unknown"
+        self.surface_point = surface_point
         self.region = region
 
     def update_bbox(self, new_bbox):
         self.bbox = new_bbox
 
-    def update_foot(self, new_foot_coordinate):
-        if self.object_type == "person":
-            self.foot_coordinate = new_foot_coordinate
+    def update_surface_point(self, new_surface_point):
+        self.surface_point = new_surface_point
 
     def update_centroid(self, new_centroid_coordinate):
         self.centroid_coordinate = new_centroid_coordinate
@@ -46,5 +42,5 @@ class DetectedObject:
             f"type={self.object_type}, "
             f"region={self.region}, "
             f"centroid={self.centroid_coordinate}, "
-            f"foot={self.foot_coordinate})"
+            f"surface_point={self.surface_point})"
         )
