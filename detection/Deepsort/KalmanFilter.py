@@ -51,11 +51,12 @@ class KalmanFilter:
         return self.x
 
     def gating_distance(self, dets):
-        x = self.x[:2]
+        x = self.x[:2].reshape((2,))  # (2,)
         S = self.H @ self.P @ self.H.T + self.R
         invS = np.linalg.inv(S)
         dists = []
         for det in dets:
-            y = np.array(det) - x
-            dists.append(float(y.T @ invS @ y))
+            y = np.array(det).reshape((2,)) - x  # (2,)
+            d = float(np.dot(np.dot(y.T, invS), y))  # skalar
+            dists.append(d)
         return np.array(dists)
