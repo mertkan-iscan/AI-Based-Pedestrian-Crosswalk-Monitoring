@@ -11,13 +11,18 @@ class FrameExtractor:
 
     @staticmethod
     def get_single_frame_from_stream(stream_url):
-        try:
-            with StreamContainer.get_container_context(stream_url) as container:
-                for frame in container.decode(video=0):
-                    return frame.to_ndarray(format='bgr24')
-        except Exception as e:
-            print("Error capturing frame:", e)
-        return None
+        cap = cv2.VideoCapture(stream_url)
+        if not cap.isOpened():
+            print(f"Error: Cannot open stream {stream_url}")
+            return None
+
+        ret, frame = cap.read()
+        cap.release()
+        if not ret:
+            print(f"Error: Cannot read a frame from {stream_url}")
+            return None
+
+        return frame
 
     @staticmethod
     def get_single_frame_from_file(video_file_path):

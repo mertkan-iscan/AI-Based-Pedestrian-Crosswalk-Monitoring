@@ -117,5 +117,11 @@
         "name": "istanbul nuh kuyusu",
         "stream_url": "https://hls.ibb.gov.tr/tkm2/hls/473.stream/chunklist.m3u8",
         "polygons_file": "resources\\location_regions\\region_polygons_istanbul_nuh_kuyusu.json"
+    },
+    {
+        "name": "sirkeci",
+        "stream_url": "https://hls.ibb.gov.tr/tkm1/hls/796.stream/chunklist.m3u8",
+        "polygons_file": "resources\\location_regions\\region_polygons_sirkeci.json",
+        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\Screenshot 2025-05-21 163336_cropped.png"
     }
 ]
