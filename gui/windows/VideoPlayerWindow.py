@@ -42,7 +42,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.original_frame_size = (1, 1)
         self.scaled_pixmap_size = (1, 1)
         self._report_shown = False
-        self.state = GlobalState(expiry_seconds=5.0)
+        self.state = GlobalState()
 
         cfg = ConfigManager()
         self.detection_fps = cfg.get_detection_fps()
