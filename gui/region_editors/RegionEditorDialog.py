@@ -61,7 +61,9 @@ class RegionEditorDialog(QtWidgets.QDialog):
         types = [
             ("Detection Blackout", "detection_blackout"),
             ("Road", "road"),
-            ("Sidewalk", "sidewalk")
+            ("Sidewalk", "sidewalk"),
+            ("Deletion Area", "deletion_area"),
+            ("Deletion Line", "deletion_line")
         ]
         for i, (txt, t) in enumerate(types):
             btn = QtWidgets.QPushButton(txt)
@@ -69,7 +71,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
             grid.addWidget(btn, i // 2, i % 2)
         pack_btn = QtWidgets.QPushButton("Add Crosswalk Pack")
         pack_btn.clicked.connect(self.open_crosswalk_pack_editor)
-        grid.addWidget(pack_btn, 1, 1)
+        grid.addWidget(pack_btn, (len(types)) // 2, (len(types)) % 2)
         region_type_group.setLayout(grid)
         right_layout.addWidget(region_type_group)
 
@@ -226,7 +228,10 @@ class RegionEditorDialog(QtWidgets.QDialog):
             cv2.circle(img, (int(pt[0]), int(pt[1])), 5, (0, 0, 255), -1)
         if len(self.current_points) > 1:
             pts = np.array(self.current_points, np.int32).reshape(-1, 1, 2)
-            cv2.polylines(img, [pts], False, (0, 0, 255), 1)
+            if self.current_region_type == "deletion_line":
+                cv2.polylines(img, [pts], False, (0, 255, 255), 3)
+            else:
+                cv2.polylines(img, [pts], False, (0, 0, 255), 1)
 
         pack_cols = {
             "crosswalk": (0, 255, 255),
@@ -237,7 +242,8 @@ class RegionEditorDialog(QtWidgets.QDialog):
             "detection_blackout": (50, 50, 50),
             "road": (50, 50, 50),
             "sidewalk": (255, 255, 0),
-            "deletion_area": (255, 0, 255)
+            "deletion_area": (255, 0, 255),
+            "deletion_line": (0, 255, 255)  # CYAN
         }
 
         for pack in self.editor.crosswalk_packs:
@@ -289,14 +295,19 @@ class RegionEditorDialog(QtWidgets.QDialog):
             col = other_cols.get(rtype, (255, 255, 255))
             for poly in regs:
                 pts = np.array(poly["points"], np.int32).reshape(-1, 1, 2)
-                cv2.polylines(img, [pts], True, col, 2)
+                if rtype == "deletion_line":
+                    cv2.polylines(img, [pts], False, col, 3)
+                else:
+                    cv2.polylines(img, [pts], True, col, 2)
                 cx = int(sum(pt[0] for pt in poly["points"]) / len(poly["points"]))
                 cy = int(sum(pt[1] for pt in poly["points"]) / len(poly["points"]))
                 cv2.putText(img, f"{rtype}-{poly['id']}", (cx, cy),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 if self.highlight == (rtype, poly["id"], None):
-                    cv2.polylines(img, [pts], True, (0, 0, 255), 4)
-
+                    if rtype == "deletion_line":
+                        cv2.polylines(img, [pts], False, (0, 0, 255), 4)
+                    else:
+                        cv2.polylines(img, [pts], True, (0, 0, 255), 4)
         qimg = QtGui.QImage(
             img.data, img.shape[1], img.shape[0], img.strides[0],
             QtGui.QImage.Format_BGR888
@@ -308,10 +319,10 @@ class RegionEditorDialog(QtWidgets.QDialog):
         )
         self.image_label.setPixmap(pix)
 
-
     def finalize_polygon(self):
-        if len(self.current_points) < 3:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Need at least 3 points.")
+        min_points = 2 if self.current_region_type == "deletion_line" else 3
+        if len(self.current_points) < min_points:
+            QtWidgets.QMessageBox.warning(self, "Warning", f"Need at least {min_points} points.")
             return
         poly = {
             "type": self.current_region_type,

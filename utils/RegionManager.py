@@ -14,7 +14,8 @@ class RegionManager:
             "detection_blackout": [],
             "road": [],
             "sidewalk": [],
-            "deletion_area": []
+            "deletion_area": [],
+            "deletion_line": []
         }
 
         if self.polygons_file:
@@ -131,19 +132,26 @@ class RegionManager:
     def overlay_regions(self, image, alpha=0.4):
         import cv2, numpy as np
         area_colors = {
-            "detection_blackout": (50,50,50),
-            "crosswalk": (0,255,255),
-            "road": (50,50,50),
-            "sidewalk": (255,255,0),
-            "car_wait": (255,102,102),
-            "pedes_wait": (0,153,0),
-            "traffic_light": (0,0,255),
-            "deletion_area": (255,0,255)
+            "detection_blackout": (50, 50, 50),
+            "crosswalk": (0, 255, 255),
+            "road": (50, 50, 50),
+            "sidewalk": (255, 255, 0),
+            "car_wait": (255, 102, 102),
+            "pedes_wait": (0, 153, 0),
+            "traffic_light": (0, 0, 255),
+            "deletion_area": (255, 0, 255),
+            "deletion_line": (0, 255, 255)  # CYAN FOR LINE
         }
         overlay = image.copy()
+
         def _fill(pts, col):
-            arr = np.asarray(pts, np.int32).reshape((-1,1,2))
+            arr = np.asarray(pts, np.int32).reshape((-1, 1, 2))
             cv2.fillPoly(overlay, [arr], col)
+
+        def _draw_line(pts, col):
+            arr = np.asarray(pts, np.int32).reshape((-1, 1, 2))
+            cv2.polylines(overlay, [arr], False, col, 5)
+
         for pack in self.crosswalk_packs:
             if pack.crosswalk:
                 _fill(pack.crosswalk.get("points", []), area_colors["crosswalk"])
@@ -152,14 +160,18 @@ class RegionManager:
             for p in pack.car_wait:
                 _fill(p.get("points", []), area_colors["car_wait"])
             for tl in pack.traffic_light:
-                c = tl.get("center"); r = tl.get("radius")
-                if isinstance(c,(list,tuple)) and r is not None:
+                c = tl.get("center");
+                r = tl.get("radius")
+                if isinstance(c, (list, tuple)) and r is not None:
                     cv2.circle(overlay, tuple(c), r, area_colors["traffic_light"], -1)
         for rtype, lst in self.other_regions.items():
-            col = area_colors.get(rtype, (255,0,0))
+            col = area_colors.get(rtype, (255, 0, 0))
             for poly in lst:
-                _fill(poly.get("points", []), col)
-        cv2.addWeighted(overlay, alpha, image, 1-alpha, 0, image)
+                if rtype == "deletion_line":
+                    _draw_line(poly.get("points", []), col)
+                else:
+                    _fill(poly.get("points", []), col)
+        cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
         return image
 
     def _save_to_file(self, file_path):
