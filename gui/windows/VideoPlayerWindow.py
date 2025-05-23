@@ -194,6 +194,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             self.detection_queue,
             state=self.state,
             homography_matrix=homography,
+            detection_fps=self.detection_fps,
             delay=self.delay_seconds
         )
         self.detection_thread.detections_ready.connect(self._update_detection_list_panel)

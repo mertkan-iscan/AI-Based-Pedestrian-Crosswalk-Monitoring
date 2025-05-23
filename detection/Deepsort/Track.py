@@ -36,14 +36,16 @@ class Track:
         self.centroid = (state[0, 0], state[1, 0])
         return self.centroid
 
-    def predict_with_dt(self, timestamp: Optional[float] = None) -> Tuple[float, float]:
+    def predict_with_dt(self, detection_fps, timestamp: Optional[float] = None) -> Tuple[float, float]:
 
-        dt = 1.0 / 10.0
+        dt = 1.0 / detection_fps
 
         state = self.kalman_filter.predict_with_dt(dt)
         self.centroid = (state[0, 0], state[1, 0])
+
         if timestamp is not None:
             self.last_timestamp = timestamp
+
         return self.centroid
 
     def update(

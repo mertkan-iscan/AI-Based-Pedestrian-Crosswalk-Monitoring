@@ -37,7 +37,7 @@ class DeepSortTracker:
         else:
             return (transformed[0], transformed[1])
 
-    def _compute_cost(self, detections, timestamp: float):
+    def _compute_cost(self, detections, timestamp: float, detection_fps: float):
         n_tracks = len(self.tracks)
         n_dets = len(detections)
         if n_tracks == 0:
@@ -49,7 +49,7 @@ class DeepSortTracker:
         appearance_matrix = np.zeros_like(cost_matrix)
 
         for i, track in enumerate(self.tracks):
-            pred_centroid = track.predict_with_dt(timestamp)
+            pred_centroid = track.predict_with_dt(detection_fps, timestamp)
             gallery = track.get_gallery()
             if gallery:
                 gallery_arr = np.stack(gallery, axis=0)
@@ -78,6 +78,7 @@ class DeepSortTracker:
             frame=None,
             features=None,
             timestamp: float | None = None,
+            detection_fps: float = 20.0,
     ):
         # If no detections, mark existing tracks and prune
         if len(rects) == 0:
@@ -158,7 +159,7 @@ class DeepSortTracker:
                 ))
 
         # Compute association costs
-        cost_matrix, motion_matrix, appearance_matrix = self._compute_cost(detections, timestamp)
+        cost_matrix, motion_matrix, appearance_matrix = self._compute_cost(detections, timestamp, detection_fps=detection_fps)
         if cost_matrix.size > 0:
             rows, cols = linear_sum_assignment(cost_matrix)
         else:

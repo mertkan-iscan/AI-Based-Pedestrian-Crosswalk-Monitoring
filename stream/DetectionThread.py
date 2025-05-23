@@ -15,6 +15,7 @@ from utils.benchmark.MetricSignals import signals
 
 
 class DetectionThread(QThread):
+
     detections_ready = pyqtSignal(list, float)
     error_signal = pyqtSignal(str)
 
@@ -23,11 +24,13 @@ class DetectionThread(QThread):
         polygons_file: str,
         detection_queue: "queue.Queue",
         state: GlobalState,
-        homography_matrix=None,
-        delay: float = 1.0,
+        homography_matrix,
+        detection_fps,
+        delay,
         parent=None,
     ):
         super().__init__(parent)
+        self.detection_fps = detection_fps
         self.queue = detection_queue
         self.delay = float(delay)
         self._run = True
@@ -78,6 +81,7 @@ class DetectionThread(QThread):
                 detections,
                 frame=masked,
                 timestamp=display_time,
+                detection_fps=self.detection_fps
             )
 
             detected_objects = []
