@@ -81,7 +81,7 @@ class DetectionThread(QThread):
             )
 
             detected_objects = []
-            for tid, (centroid, bbox) in tracks_map.items():
+            for tid, (surface_point, bbox) in tracks_map.items():
                 x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 
@@ -89,7 +89,8 @@ class DetectionThread(QThread):
                     tid,
                     obj_type,
                     (int(x1), int(y1), int(x2), int(y2)),
-                    centroid
+                    surface_point,
+                    surface_point
                 )
 
                 obj.confidence = float(conf)

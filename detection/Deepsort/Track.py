@@ -37,10 +37,9 @@ class Track:
         return self.centroid
 
     def predict_with_dt(self, timestamp: Optional[float] = None) -> Tuple[float, float]:
-        if self.last_timestamp is not None and timestamp is not None:
-            dt = timestamp - self.last_timestamp
-        else:
-            dt = 1.0 / 10.0
+
+        dt = 1.0 / 10.0
+
         state = self.kalman_filter.predict_with_dt(dt)
         self.centroid = (state[0, 0], state[1, 0])
         if timestamp is not None:
