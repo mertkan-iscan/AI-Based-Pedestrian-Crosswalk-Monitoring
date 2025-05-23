@@ -72,6 +72,14 @@ class DeepSortTracker:
 
         return cost_matrix, motion_matrix, appearance_matrix
 
+    def remove_tracks(self, track_ids):
+        # Remove tracks whose ID is in track_ids
+        removed = [t.track_id for t in self.tracks if t.track_id in track_ids]
+        if removed:
+            print(f"Removing tracks: {removed}")
+        self.tracks = [t for t in self.tracks if t.track_id not in track_ids]
+
+
     def update(
             self,
             rects,
@@ -80,12 +88,15 @@ class DeepSortTracker:
             timestamp: float | None = None,
             detection_fps: float = 20.0,
     ):
+        removed_ids = []
         # If no detections, mark existing tracks and prune
         if len(rects) == 0:
             for track in self.tracks:
                 track.time_since_update += 1
+            # Collect IDs of tracks that will be removed
+            removed_ids = [t.track_id for t in self.tracks if t.time_since_update > self.max_disappeared]
             self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
-            return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}
+            return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}, removed_ids
 
         # Build detection list: each entry is (calibrated_centroid, bbox_with_conf, feature)
         detections = []
@@ -190,6 +201,7 @@ class DeepSortTracker:
                 track.time_since_update += 1
 
         # Prune disappeared tracks
+        removed_ids = [t.track_id for t in self.tracks if t.time_since_update > self.max_disappeared]
         self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
 
         # Create new tracks for unmatched detections
@@ -198,7 +210,7 @@ class DeepSortTracker:
                 bbox_j, feat_j, cent_j = detections[j][1], detections[j][2], detections[j][0]
                 new_track = Track(
                     self.next_track_id,
-                    bbox_j,  # stores conf as well
+                    bbox_j,
                     cent_j,
                     feature=feat_j,
                     nn_budget=self.nn_budget,
@@ -208,4 +220,4 @@ class DeepSortTracker:
                 self.next_track_id += 1
 
         # Return mapping of track_id to (centroid, bbox_with_conf)
-        return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}
+        return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}, removed_ids

@@ -14,6 +14,20 @@ from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals
 
 
+def lines_intersect(a1, a2, b1, b2):
+    def ccw(A, B, C):
+        return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+    return (ccw(a1, b1, b2) != ccw(a2, b1, b2)) and (ccw(a1, a2, b1) != ccw(a1, a2, b2))
+
+def point_to_segment_dist(px, py, x1, y1, x2, y2):
+    dx, dy = x2 - x1, y2 - y1
+    if dx == dy == 0:
+        return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+    t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
+    proj_x = x1 + t * dx
+    proj_y = y1 + t * dy
+    return ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
+
 class DetectionThread(QThread):
 
     detections_ready = pyqtSignal(list, float)
@@ -72,6 +86,34 @@ class DetectionThread(QThread):
         res /= res[2, 0]
         return float(res[0, 0]), float(res[1, 0])
 
+    def _bbox_hits_deletion_line(self, bbox, threshold=6.0):
+        x1, y1, x2, y2 = bbox[:4]
+        bbox_edges = [
+            ((x1, y1), (x2, y1)),
+            ((x2, y1), (x2, y2)),
+            ((x2, y2), (x1, y2)),
+            ((x1, y2), (x1, y1)),
+        ]
+
+        def sample_edge(p1, p2, n=5):
+            return [(p1[0] + (p2[0] - p1[0]) * i / (n - 1), p1[1] + (p2[1] - p1[1]) * i / (n - 1)) for i in range(n)]
+
+        for rtype in ("deletion_line", "pedestrian_deletion_line"):
+            for line in self.editor.other_regions.get(rtype, []):
+                pts = line["points"]
+                if len(pts) >= 2:
+                    for i in range(len(pts) - 1):
+                        lx1, ly1 = pts[i]
+                        lx2, ly2 = pts[i + 1]
+                        for (b1, b2) in bbox_edges:
+                            if lines_intersect((lx1, ly1), (lx2, ly2), b1, b2):
+                                return True
+                            for (px, py) in sample_edge(b1, b2, n=5):
+                                dist = point_to_segment_dist(px, py, lx1, ly1, lx2, ly2)
+                                if dist <= threshold:
+                                    return True
+        return False
+
     def run(self):
         while self._run:
             try:
@@ -94,15 +136,22 @@ class DetectionThread(QThread):
 
             t_post_start = time.time()
 
-            tracks_map = self.tracker.update(
+            tracks_map, removed_ids= self.tracker.update(
                 detections,
                 frame=masked,
                 timestamp=display_time,
                 detection_fps=self.detection_fps
             )
 
-            detected_objects = []
+            ids_to_remove = []
+            objects_to_emit = []
             for tid, (surface_point, bbox) in tracks_map.items():
+
+                if self._bbox_hits_deletion_line(bbox):
+                    print(f"Deletion line hit – track {tid} bbox {bbox}")
+                    ids_to_remove.append(tid)
+                    continue
+
                 x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 
@@ -111,38 +160,49 @@ class DetectionThread(QThread):
                     obj_type,
                     (int(x1), int(y1), int(x2), int(y2)),
                     surface_point,
-                    surface_point
+                    surface_point,
                 )
 
                 obj.confidence = float(conf)
 
                 for t in self.tracker.tracks:
                     if t.track_id == tid:
-                        obj.motion_distance = getattr(t, 'motion_distance', None)
-                        obj.appearance_distance = getattr(t, 'appearance_distance', None)
+                        obj.motion_distance = getattr(t, "motion_distance", None)
+                        obj.appearance_distance = getattr(t, "appearance_distance", None)
                         break
+                objects_to_emit.append(obj)
 
-                detected_objects.append(obj)
+            all_to_remove = list(set(ids_to_remove) | set(removed_ids))
+            if all_to_remove:
+                self.tracker.remove_tracks(all_to_remove)
 
             signals.postproc_logged.emit(time.time() - t_post_start)
 
-            emit_time = display_time + self.delay
 
-            schedule_delay = emit_time - time.time()
+            emit_at = display_time + self.delay
+            wait = emit_at - time.time()
 
+            schedule_delay = emit_at - time.time()
             signals.scheduling_logged.emit(schedule_delay)
 
             timer = threading.Timer(
-                schedule_delay,
-                lambda objs=detected_objects, cap=capture_time: self._emit_detections(objs, cap)
+                max(0.0, wait),
+                lambda objs=objects_to_emit, rm=all_to_remove, cap=capture_time:
+                self._emit_detections_with_deletion(objs, rm, cap)
             )
-
             timer.daemon = True
             timer.start()
 
     def _emit_detections(self, detected_objects, capture_time):
         self.state.update(detected_objects, time.time())
         self.detections_ready.emit(detected_objects, capture_time)
+
+    def _emit_detections_with_deletion(self, objects, ids_to_remove, capture_time):
+        if ids_to_remove:
+            self.state.remove(ids_to_remove)
+        if objects:
+            self.state.update(objects, time.time())
+        self.detections_ready.emit(objects, capture_time)
 
     def stop(self):
         self._run = False

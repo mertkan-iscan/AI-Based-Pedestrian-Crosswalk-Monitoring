@@ -234,5 +234,33 @@
   ],
   "road": [],
   "sidewalk": [],
-  "deletion_area": []
+  "deletion_area": [],
+  "deletion_line": [
+    {
+      "id": 1,
+      "points": [
+        [
+          736,
+          285
+        ],
+        [
+          858,
+          270
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "points": [
+        [
+          1714,
+          333
+        ],
+        [
+          1893,
+          349
+        ]
+      ]
+    }
+  ]
 }
