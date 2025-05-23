@@ -3,7 +3,7 @@ yolo:
   version: yolov5xu.pt
   imgsz: 640
 
-  conf: 0.20
+  conf: 0.60
   classes: [0,1,2,3,5,7]
   conf_per_class:
     0: 0.50
