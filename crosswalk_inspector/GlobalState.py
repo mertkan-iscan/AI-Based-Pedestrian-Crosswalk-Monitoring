@@ -1,13 +1,12 @@
-import time
 from threading import Lock
 
 class GlobalState:
 
     def __init__(self):
         self._lock            = Lock()
-        self._objects         = {}     # track_id → DetectedObject
-        self._last_seen       = {}     # track_id → timestamp
-        self._last_capture    = 0.0    # remember the original capture_time
+        self._objects         = {}
+        self._last_seen       = {}
+        self._last_capture    = 0.0
 
     def update(self, objects_list, capture_time: float):
         with self._lock:

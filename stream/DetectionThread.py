@@ -50,33 +50,50 @@ class DetectionThread(QThread):
         self.editor = RegionManager(polygons_file)
         self.editor.load_polygons()
 
+        self.H_inv = None
+        if homography_matrix is not None:
+            try:
+                self.H_inv = np.linalg.inv(np.asarray(homography_matrix, dtype=np.float32))
+            except np.linalg.LinAlgError:
+                self.H_inv = None
+
     def _mask_blackout(self, frame):
         masked = frame.copy()
-        for poly in self.editor.region_polygons:
-            if poly.get("type") == "detection_blackout":
-                pts = np.array(poly["points"], dtype=np.int32)
-                cv2.fillPoly(masked, [pts], (0, 0, 0))
+        for poly in self.editor.other_regions.get("detection_blackout", []):
+            pts = np.array(poly["points"], dtype=np.int32)
+            cv2.fillPoly(masked, [pts], (0, 0, 0))
         return masked
+
+    def _bev_to_cam(self, pt):
+        if self.H_inv is None:
+            return pt
+        vec = np.array([[pt[0], pt[1], 1]], dtype=np.float32).T
+        res = self.H_inv @ vec
+        res /= res[2, 0]
+        return float(res[0, 0]), float(res[1, 0])
 
     def run(self):
         while self._run:
             try:
                 frame, capture_time, display_time = self.queue.get(timeout=0.05)
-                orig_capture = capture_time
             except queue.Empty:
                 continue
 
             t_dequeue = time.time()
-            signals.queue_wait_logged.emit(t_dequeue - orig_capture)
 
+            signals.queue_wait_logged.emit(t_dequeue - capture_time)
             masked = self._mask_blackout(frame)
 
             t_inf_start = time.time()
+
             detections = run_inference(masked)
+
             t_inf_end = time.time()
+
             signals.detection_logged.emit(t_inf_end - t_inf_start)
 
             t_post_start = time.time()
+
             tracks_map = self.tracker.update(
                 detections,
                 frame=masked,
@@ -106,15 +123,20 @@ class DetectionThread(QThread):
                         break
 
                 detected_objects.append(obj)
+
             signals.postproc_logged.emit(time.time() - t_post_start)
 
             emit_time = display_time + self.delay
+
             schedule_delay = emit_time - time.time()
+
             signals.scheduling_logged.emit(schedule_delay)
+
             timer = threading.Timer(
                 schedule_delay,
-                lambda objs=detected_objects, cap=orig_capture: self._emit_detections(objs, cap)
+                lambda objs=detected_objects, cap=capture_time: self._emit_detections(objs, cap)
             )
+
             timer.daemon = True
             timer.start()
 
