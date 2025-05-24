@@ -252,7 +252,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             if getattr(obj, "surface_point", None) is not None:
                 pt = obj.surface_point
             elif getattr(obj, "centroid_coordinate", None) is not None:
-                pt = obj.centroid_coordinate
+                pt = obj.raw_surface_point
             else:
                 continue
 

@@ -113,8 +113,10 @@ class OverlayWidget(QWidget):
                 painter.drawText(cost_pos, cost_text)
 
             # draw transformed centroids and foot-points unchanged…
-            if hasattr(obj, 'centroid_coordinate') and obj.centroid_coordinate is not None:
-                cx, cy = self._to_pixel(obj.centroid_coordinate)
+            if hasattr(obj, 'surface_point') and obj.surface_point is not None:
+
+                cx, cy = self._to_pixel(obj.surface_point)
+
                 sx, sy = off_x + cx * scale, off_y + cy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
                 painter.setPen(QtGui.QPen(QtGui.QColor(0, 128, 255), 2))
@@ -122,18 +124,6 @@ class OverlayWidget(QWidget):
                 painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
                 painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))
                 painter.drawText(QtCore.QPointF(sx + 6, sy), f"TP: {obj.id}")
-                painter.setPen(old_pen)
-                painter.setBrush(old_brush)
-
-            if hasattr(obj, 'surface_point') and obj.surface_point is not None:
-                fx, fy = obj.surface_point
-                sx, sy = off_x + fx * scale, off_y + fy * scale
-                old_pen, old_brush = painter.pen(), painter.brush()
-                painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 0), 2))
-                painter.setBrush(QtGui.QColor(255, 255, 0))
-                painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
-                painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0)))
-                painter.drawText(QtCore.QPointF(sx + 6, sy), f"FP: {obj.id}")
                 painter.setPen(old_pen)
                 painter.setBrush(old_brush)
 

@@ -77,7 +77,7 @@ class CrosswalkPackMonitor:
             if tid not in self.entities:
                 self.entities[tid] = EntityState(tid, cls)
             st = self.entities[tid]
-            pt = det.surface_point or det.centroid_coordinate
+            pt = det.surface_point or det.raw_surface_point
             if pt is None:
                 continue
             for i, reg in enumerate(self.ped_wait_regions):
