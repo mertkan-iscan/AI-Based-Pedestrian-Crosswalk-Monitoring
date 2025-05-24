@@ -125,8 +125,8 @@ class OverlayWidget(QWidget):
                 painter.setPen(old_pen)
                 painter.setBrush(old_brush)
 
-            if hasattr(obj, 'foot_coordinate') and obj.foot_coordinate is not None:
-                fx, fy = obj.foot_coordinate
+            if hasattr(obj, 'surface_point') and obj.surface_point is not None:
+                fx, fy = obj.surface_point
                 sx, sy = off_x + fx * scale, off_y + fy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
                 painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 0), 2))

@@ -9,7 +9,7 @@ from crosswalk_inspector.objects.DetectedObject import DetectedObject
 from detection.Inference import run_inference
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from utils.RegionManager import RegionManager
-from crosswalk_inspector.GlobalState import GlobalState
+from utils.GlobalState import GlobalState
 from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricSignals import signals
 
@@ -122,20 +122,16 @@ class DetectionThread(QThread):
                 continue
 
             t_dequeue = time.time()
-
             signals.queue_wait_logged.emit(t_dequeue - capture_time)
+
             masked = self._mask_blackout(frame)
 
             t_inf_start = time.time()
-
             detections = run_inference(masked)
-
             t_inf_end = time.time()
-
             signals.detection_logged.emit(t_inf_end - t_inf_start)
 
             t_post_start = time.time()
-
             tracks_map, removed_ids= self.tracker.update(
                 detections,
                 frame=masked,
@@ -147,10 +143,10 @@ class DetectionThread(QThread):
             objects_to_emit = []
             for tid, (surface_point, bbox) in tracks_map.items():
 
-                if self._bbox_hits_deletion_line(bbox):
-                    print(f"Deletion line hit – track {tid} bbox {bbox}")
-                    ids_to_remove.append(tid)
-                    continue
+                # if self._bbox_hits_deletion_line(bbox):
+                #     print(f"Deletion line hit – track {tid} bbox {bbox}")
+                #     ids_to_remove.append(tid)
+                #     continue
 
                 x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
@@ -178,7 +174,6 @@ class DetectionThread(QThread):
 
             signals.postproc_logged.emit(time.time() - t_post_start)
 
-
             emit_at = display_time + self.delay
             wait = emit_at - time.time()
 
@@ -190,6 +185,7 @@ class DetectionThread(QThread):
                 lambda objs=objects_to_emit, rm=all_to_remove, cap=capture_time:
                 self._emit_detections_with_deletion(objs, rm, cap)
             )
+
             timer.daemon = True
             timer.start()
 

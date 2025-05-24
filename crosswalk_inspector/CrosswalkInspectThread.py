@@ -8,7 +8,7 @@ from PyQt5 import QtCore
 from crosswalk_inspector.objects.DetectedObject import DetectedObject
 from crosswalk_inspector.objects.TrafficLight import TrafficLight
 from utils.RegionManager import RegionManager
-from crosswalk_inspector.GlobalState import GlobalState
+from utils.GlobalState import GlobalState
 
 
 class Region:
@@ -77,7 +77,7 @@ class CrosswalkPackMonitor:
             if tid not in self.entities:
                 self.entities[tid] = EntityState(tid, cls)
             st = self.entities[tid]
-            pt = det.foot_coordinate or det.centroid_coordinate
+            pt = det.surface_point or det.centroid_coordinate
             if pt is None:
                 continue
             for i, reg in enumerate(self.ped_wait_regions):

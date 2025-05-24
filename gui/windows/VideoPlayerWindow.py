@@ -1,12 +1,11 @@
 import os
 import queue
 import time
-import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from crosswalk_inspector.CrosswalkInspectThread import CrosswalkInspectThread
-from crosswalk_inspector.GlobalState import GlobalState
+from utils.GlobalState import GlobalState
 from crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
 from gui.windows.OverlayWidget import OverlayWidget
 from stream.FrameProducerThread import FrameProducerThread
@@ -152,9 +151,9 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
                 H_inv = None
 
         # 3) Start the traffic‐light monitor
-        #self.tl_monitor = TrafficLightMonitorThread(delay=self.delay_seconds)
-        #self.tl_monitor.error_signal.connect(self._handle_error)
-        #self.tl_monitor.start()
+        self.tl_monitor = TrafficLightMonitorThread(delay=self.delay_seconds)
+        self.tl_monitor.error_signal.connect(self._handle_error)
+        self.tl_monitor.start()
 
         # 4) Start the frame producer (also emits TL crops)
         self.producer = FrameProducerThread(
@@ -165,22 +164,24 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             traffic_light_fps=self.traffic_light_fps,
             editor=self.editor
         )
-        #self.producer.traffic_light_crops.connect(
-        #    self.tl_monitor.on_new_crops, QtCore.Qt.QueuedConnection
-        #)
+
+        self.producer.traffic_light_crops.connect(
+            self.tl_monitor.on_new_crops, QtCore.Qt.QueuedConnection
+        )
+
         self.producer.error_signal.connect(self._handle_error)
         self.producer.start()
 
         # 5) Start the crosswalk inspector, now passing H_inv
-        #self.crosswalk_monitor = CrosswalkInspectThread(
-        #    editor=self.editor,
-        #    global_state=self.state,
-        #    tl_objects=self.producer.tl_objects,
-        #    check_period=0.2,
-        #    homography_inv=H_inv      # ← pass the inverse homography here
-        #)
-        #self.crosswalk_monitor.error_signal.connect(self._handle_error)
-        #self.crosswalk_monitor.start()
+        self.crosswalk_monitor = CrosswalkInspectThread(
+            editor=self.editor,
+            global_state=self.state,
+            tl_objects=self.producer.tl_objects,
+            check_period=0.2,
+            homography_inv=H_inv      # ← pass the inverse homography here
+        )
+        self.crosswalk_monitor.error_signal.connect(self._handle_error)
+        self.crosswalk_monitor.start()
 
         # 6) Start the video consumer
         self.video_consumer = VideoConsumerThread(self.video_queue, delay=self.delay_seconds)
@@ -248,12 +249,8 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         )
 
         for obj in objects:
-            if getattr(obj, "foot_coordinate", None) is not None:
-                pt = obj.foot_coordinate
-                if H is not None:
-                    pt = cv2.perspectiveTransform(
-                        np.array([[pt]], dtype=np.float32), H
-                    )[0, 0]
+            if getattr(obj, "surface_point", None) is not None:
+                pt = obj.surface_point
             elif getattr(obj, "centroid_coordinate", None) is not None:
                 pt = obj.centroid_coordinate
             else:

@@ -1,13 +1,13 @@
 yolo:
   device: cuda
-  version: yolov5xu.pt
+  version: yolov5m.pt
   imgsz: 640
 
-  conf: 0.60
+  conf: 0.50
   classes: [0,1,2,3,5,7]
   conf_per_class:
-    0: 0.50
-    2: 0.70
+    0: 0.40
+    2: 0.50
   
 database:
   db_file: resources/object_paths.db
@@ -21,7 +21,7 @@ deepsort:
   motion_weight: 0.5
 
 detection_thread:
-  detection_fps: 10
+  detection_fps: 15
   delay_seconds: 5.0
 
 crosswalk_monitor:
