@@ -30,13 +30,47 @@ def hsv_color_classifier(crops: Dict[str, np.ndarray]) -> str:
     return best_color
 
 
+def robust_traffic_light_classifier(crops: Dict[str, np.ndarray]) -> str:
+    MIN_ON_THRESHOLD = 80  # increased because mean is too low otherwise
+    MIN_DIFF = 8           # lower because values are close
+
+    def mean_top_percent_v(img, percent=5):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        v = hsv[..., 2].flatten()
+        v = v[v > 0]  # skip black
+        if len(v) == 0:
+            return 0
+        top_n = max(1, int(len(v) * percent / 100))
+        return np.mean(np.partition(v, -top_n)[-top_n:])
+
+    means = {}
+    for color in ['red', 'yellow', 'green']:
+        crop = crops.get(color)
+        if crop is None or crop.size == 0:
+            means[color] = 0
+            continue
+        means[color] = mean_top_percent_v(crop, percent=5)
+
+    sorted_means = sorted(means.items(), key=lambda x: x[1], reverse=True)
+    top_color, top_value = sorted_means[0]
+    second_value = sorted_means[1][1]
+
+    if all(val < MIN_ON_THRESHOLD for val in means.values()):
+        return "UNKNOWN"
+
+    if top_value - second_value >= MIN_DIFF:
+        return top_color
+
+    return top_color
+
+
 class TrafficLightMonitorThread(QtCore.QThread):
     error_signal = QtCore.pyqtSignal(str)
 
     def __init__(self, delay: float = 0.0, parent=None):
         super().__init__(parent)
         self.delay = float(delay)
-        self.analyze_fn = hsv_color_classifier
+        self.analyze_fn = robust_traffic_light_classifier
         self.moveToThread(self)
 
     @QtCore.pyqtSlot(list)
@@ -68,8 +102,8 @@ class TrafficLightMonitorThread(QtCore.QThread):
                 timer.start()
 
     def _update_light(self, tl: TrafficLight, crops: Dict[str, np.ndarray]):
-        # copy over crops and then do the real status update
-        tl.crops = {k: v.copy() for k, v in crops.items()}
+        crops_snapshot = dict(crops)
+        tl.crops = {k: v.copy() for k, v in crops_snapshot.items()}
         tl.update_status(self.analyze_fn)
 
     def run(self):

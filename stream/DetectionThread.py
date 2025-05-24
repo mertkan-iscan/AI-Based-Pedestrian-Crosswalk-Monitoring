@@ -63,6 +63,7 @@ class DetectionThread(QThread):
 
         self.editor = RegionManager(polygons_file)
         self.editor.load_polygons()
+        self._timers = set()
 
         self.H_inv = None
         if homography_matrix is not None:
@@ -202,5 +203,9 @@ class DetectionThread(QThread):
 
     def stop(self):
         self._run = False
+        # Cancel all timers
+        for timer in getattr(self, "_timers", []):
+            timer.cancel()
+        self._timers.clear()
         self.quit()
         self.wait()

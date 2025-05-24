@@ -99,7 +99,6 @@ class CrosswalkInspectThread(QtCore.QThread):
                  homography_inv=None, parent=None):
         super().__init__(parent)
 
-        # ——— simple print logging for load events ———
         print("Loading Crosswalk Packs:")
         for pack in editor.crosswalk_packs:
             print(f"  Pack ID: {pack.id}")
@@ -120,13 +119,8 @@ class CrosswalkInspectThread(QtCore.QThread):
         self._running    = True
         self.H_inv       = homography_inv
 
-        # map pack.id → pack for quick lookup :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
         self.packs = {pack.id: pack for pack in editor.crosswalk_packs}
-
-        # remember last light state
         self._last_tl_status = {tl.id: None for tl in tl_objects}
-
-        # build one monitor per pack
         self.monitors = {
             pack.id: CrosswalkPackMonitor(
                 pack.id,
@@ -136,6 +130,59 @@ class CrosswalkInspectThread(QtCore.QThread):
                 homography_inv
             ) for pack in editor.crosswalk_packs
         }
+
+    def get_effective_traffic_light_status(self, pack_id, tl_objects, light_type):
+        vehicle_tl = None
+        pedestrian_tl = None
+        for tl in tl_objects:
+            if tl.pack_id != pack_id:
+                continue
+            if tl.type == 'vehicle':
+                vehicle_tl = tl
+            elif tl.type == 'pedestrian':
+                pedestrian_tl = tl
+
+        vehicle_status = vehicle_tl.status if vehicle_tl else None
+        pedestrian_status = pedestrian_tl.status if pedestrian_tl else None
+
+        if vehicle_tl and not pedestrian_tl:
+            if vehicle_status in ('green', 'red'):
+                if light_type == 'vehicle':
+                    return vehicle_status
+                else:
+                    return 'red' if vehicle_status == 'green' else 'green'
+            elif vehicle_status == 'yellow':
+                return 'yellow'
+            else:
+                return 'UNKNOWN'
+        elif pedestrian_tl and not vehicle_tl:
+            if pedestrian_status in ('green', 'red'):
+                if light_type == 'pedestrian':
+                    return pedestrian_status
+                else:
+                    return 'red' if pedestrian_status == 'green' else 'green'
+            elif pedestrian_status == 'yellow':
+                return 'yellow'
+            else:
+                return 'UNKNOWN'
+        elif vehicle_tl and pedestrian_tl:
+            if (
+                vehicle_status in ('green', 'red')
+                and pedestrian_status in ('green', 'red')
+                and vehicle_status == pedestrian_status
+            ):
+                print(f"[WARNING] Inconsistent traffic light status in pack {pack_id}: "
+                      f"vehicle={vehicle_status}, pedestrian={pedestrian_status}")
+            if vehicle_status == 'UNKNOWN' and pedestrian_status in ('green', 'red'):
+                vehicle_status = 'red' if pedestrian_status == 'green' else 'green'
+            if pedestrian_status == 'UNKNOWN' and vehicle_status in ('green', 'red'):
+                pedestrian_status = 'red' if vehicle_status == 'green' else 'green'
+            if light_type == 'vehicle':
+                return vehicle_status if vehicle_status is not None else 'UNKNOWN'
+            else:
+                return pedestrian_status if pedestrian_status is not None else 'UNKNOWN'
+        else:
+            return 'UNKNOWN'
 
     def run(self):
         try:
@@ -155,12 +202,6 @@ class CrosswalkInspectThread(QtCore.QThread):
                 for mon in self.monitors.values():
                     mon.process_frame(objects, now_ts, self.tl_objects)
 
-                tl_status = {
-                    tl.pack_id: tl.status
-                    for tl in self.tl_objects
-                    if getattr(self.packs.get(tl.pack_id), 'is_signalized', False)
-                }
-
                 lines = []
                 any_change = False
                 for tl in self.tl_objects:
@@ -178,11 +219,11 @@ class CrosswalkInspectThread(QtCore.QThread):
                             self._last_tl_status[tl.id] = tl.status
 
                 for pack_id, mon in self.monitors.items():
-                    status = tl_status.get(pack_id)
+                    vehicle_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'vehicle')
                     for tid, st in mon.entities.items():
                         if st.class_name != 'person':
                             dur = st.durations.pop('crosswalk', None)
-                            if dur is not None and status == 'green':
+                            if dur is not None and vehicle_status == 'green':
                                 lines.append(
                                     f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)"
                                 )
