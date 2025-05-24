@@ -94,9 +94,14 @@ class CrosswalkInspectThread(QtCore.QThread):
     # thresholds
     T_PED_WAIT = 2.0
 
-    def __init__(self, editor: RegionManager, global_state: GlobalState,
-                 tl_objects: list[TrafficLight], check_period: float,
-                 homography_inv=None, parent=None):
+    def __init__(self,
+                 editor: RegionManager,
+                 global_state: GlobalState,
+                 tl_objects: list[TrafficLight],
+                 check_period: float,
+                 homography_inv=None, parent=None
+    ):
+
         super().__init__(parent)
 
         print("Loading Crosswalk Packs:")
@@ -220,13 +225,27 @@ class CrosswalkInspectThread(QtCore.QThread):
 
                 for pack_id, mon in self.monitors.items():
                     vehicle_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'vehicle')
+                    pedestrian_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'pedestrian')
                     for tid, st in mon.entities.items():
+                        # Vehicle event
                         if st.class_name != 'person':
                             dur = st.durations.pop('crosswalk', None)
                             if dur is not None and vehicle_status == 'green':
                                 lines.append(
                                     f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)"
                                 )
+                        # Pedestrian event (crossed during red/yellow)
+                        if st.class_name == 'person':
+                            dur = st.durations.pop('crosswalk', None)
+                            if dur is not None:
+                                if pedestrian_status in ('red', 'yellow'):
+                                    lines.append(
+                                        f"[{timestr}] VIOLATION: Person {tid} crossed on {pedestrian_status.upper()} pedestrian light in Pack:{pack_id} (dur={dur:.2f}s)"
+                                    )
+                                elif pedestrian_status == 'green':
+                                    lines.append(
+                                        f"[{timestr}] Event: Person {tid} crossed on green pedestrian light in Pack:{pack_id} (dur={dur:.2f}s)"
+                                    )
 
                 if lines:
                     print("\n".join(lines), flush=True)

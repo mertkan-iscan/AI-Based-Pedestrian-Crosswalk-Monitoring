@@ -274,7 +274,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.stop_stream()
 
     def stop_stream(self):
-        for attr in ("video_consumer", "detection_thread", "producer"):
+        for attr in ("video_consumer", "detection_thread", "producer", "crosswalk_monitor", "tl_monitor"):
             t = getattr(self, attr, None)
             if t:
                 t.stop()
