@@ -11,6 +11,7 @@ from torchvision.models import resnet50
 
 class ReIDModel(nn.Module):
     def __init__(self, embedding_dim: int = 512):
+
         super().__init__()
         backbone = resnet50(pretrained=True)
         backbone.fc = nn.Identity()

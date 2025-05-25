@@ -26,7 +26,8 @@ class DeepSortTracker:
         self.motion_weight = motion_weight
         self.homography_matrix = homography_matrix
         self.nn_budget = nn_budget
-        self.feature_extractor = CNNFeatureExtractor(device=device)
+        self.feature_extractor = CNNFeatureExtractor(device=device, checkpoint_path="resnet50_market1501_clean.pth")
+
         self.executor = ThreadPoolExecutor(max_workers=1)
 
     def calibrate_point(self, point, homography_matrix):

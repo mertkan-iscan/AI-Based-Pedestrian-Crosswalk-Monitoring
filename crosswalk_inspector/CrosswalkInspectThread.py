@@ -208,21 +208,6 @@ class CrosswalkInspectThread(QtCore.QThread):
                     mon.process_frame(objects, now_ts, self.tl_objects)
 
                 lines = []
-                any_change = False
-                for tl in self.tl_objects:
-                    pack = self.packs.get(tl.pack_id)
-                    if pack and pack.is_signalized and self._last_tl_status[tl.id] != tl.status:
-                        any_change = True
-                        break
-
-                if any_change:
-                    lines.append(f"[{timestr}] Traffic Light Statuses:")
-                    for tl in self.tl_objects:
-                        pack = self.packs.get(tl.pack_id)
-                        if pack and pack.is_signalized and self._last_tl_status[tl.id] != tl.status:
-                            lines.append(f"  Pack:{tl.pack_id} Light:{tl.id} Status:{tl.status}")
-                            self._last_tl_status[tl.id] = tl.status
-
                 for pack_id, mon in self.monitors.items():
                     vehicle_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'vehicle')
                     pedestrian_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'pedestrian')

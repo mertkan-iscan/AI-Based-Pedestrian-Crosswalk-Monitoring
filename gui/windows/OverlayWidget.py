@@ -51,6 +51,10 @@ class OverlayWidget(QWidget):
             return pt
         return (dst[0] / dst[2], dst[1] / dst[2])
 
+    def set_traffic_light_overlays(self, overlays):
+        self.traffic_light_overlays = overlays
+        self.update()
+
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
@@ -127,4 +131,38 @@ class OverlayWidget(QWidget):
                 painter.setPen(old_pen)
                 painter.setBrush(old_brush)
 
+                for tl in getattr(self, "traffic_light_overlays", []):
+                    center = tl["center"]
+                    status = tl["status"]
+
+                    sw, sh = self.scaled_pixmap_size
+                    ow, oh = self.original_frame_size
+                    scale = min(sw / ow, sh / oh) if ow and oh else 1.0
+                    off_x = (self.width() - ow * scale) / 2
+                    off_y = (self.height() - oh * scale) / 2
+                    cx = off_x + center[0] * scale
+                    cy = off_y + center[1] * scale
+
+                    color_map = {
+                        "green": QtGui.QColor(0, 255, 0),
+                        "red": QtGui.QColor(255, 0, 0),
+                        "yellow": QtGui.QColor(255, 255, 0),
+                        "UNKNOWN": QtGui.QColor(128, 128, 128),
+                    }
+                    text_color = color_map.get(status, QtGui.QColor(128, 128, 128))
+
+                    font = painter.font()
+                    font.setBold(True)
+                    font.setPointSize(12)
+                    painter.setFont(font)
+                    painter.setPen(QtGui.QPen(text_color, 2))
+
+                    label_text = status.upper()
+                    fm = painter.fontMetrics()
+                    text_width = fm.horizontalAdvance(label_text)
+                    text_height = fm.height()
+                    text_x = cx - text_width / 2
+                    offset = text_height
+                    text_y = cy - offset
+                    painter.drawText(QtCore.QPointF(text_x, text_y), label_text)
         painter.end()

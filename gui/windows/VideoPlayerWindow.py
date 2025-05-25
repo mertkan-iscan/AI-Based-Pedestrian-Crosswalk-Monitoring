@@ -1,6 +1,8 @@
 import os
 import queue
 import time
+from collections import defaultdict
+
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -214,6 +216,10 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.overlay.update()
 
     def _update_detection_list_panel(self, *_):
+
+        if self.crosswalk_monitor is None or self.producer is None:
+            return
+
         objects, capture_time = self.state.get()
         if self.original_frame_size == (1, 1):
             return
@@ -226,6 +232,44 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.latency_label.setText(f"Delay: {delay:.2f} s")
         signals.delay_logged.emit(delay)
         self._update_birds_eye(objects)
+
+        from collections import defaultdict
+
+        tl_overlay_groups = defaultdict(lambda: {"centers": [], "red_center": None})
+        if self.crosswalk_monitor is not None and self.producer is not None:
+            for pack in self.editor.crosswalk_packs:
+                for tl in pack.traffic_light:
+                    pack_id = pack.id
+                    light_type = tl.get("light_type")
+                    center = tl.get("center")
+                    signal_color = tl.get("signal_color")
+                    key = (pack_id, light_type)
+                    if center is not None:
+                        tl_overlay_groups[key]["centers"].append(center)
+                        if signal_color == "red":
+                            tl_overlay_groups[key]["red_center"] = center
+
+        tl_overlays = []
+        for (pack_id, light_type), group in tl_overlay_groups.items():
+            # Use red center if it exists, otherwise average all
+            if group["red_center"] is not None:
+                chosen_center = group["red_center"]
+            elif group["centers"]:
+                chosen_center = (
+                    int(sum(c[0] for c in group["centers"]) / len(group["centers"])),
+                    int(sum(c[1] for c in group["centers"]) / len(group["centers"]))
+                )
+            else:
+                continue
+            status = self.crosswalk_monitor.get_effective_traffic_light_status(
+                pack_id, self.producer.tl_objects, light_type
+            )
+            tl_overlays.append({
+                "center": chosen_center,
+                "status": status,
+                "light_type": light_type,
+            })
+        self.overlay.set_traffic_light_overlays(tl_overlays)
 
     def _update_birds_eye(self, objects):
         if not self.birds_eye_pixmap:
