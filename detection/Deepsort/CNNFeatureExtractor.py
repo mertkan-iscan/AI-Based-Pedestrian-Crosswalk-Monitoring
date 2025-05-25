@@ -6,14 +6,13 @@ import torch.nn.functional as F
 import numpy as np
 import cv2
 import torchvision.transforms as T
-from torchvision.models import resnet50
+from torchvision.models import resnet50, ResNet50_Weights
 
 
 class ReIDModel(nn.Module):
     def __init__(self, embedding_dim: int = 512):
-
         super().__init__()
-        backbone = resnet50(pretrained=True)
+        backbone = resnet50(weights=ResNet50_Weights.DEFAULT)
         backbone.fc = nn.Identity()
         self.backbone = backbone
         self.embedding = nn.Linear(2048, embedding_dim)
@@ -36,13 +35,18 @@ class CNNFeatureExtractor:
     ):
         self.device = torch.device(device)
         model = ReIDModel(embedding_dim)
+
         if checkpoint_path is not None:
             # load the file (may contain a 'state_dict' wrapper)
+
             raw = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+
             state_dict = raw.get("state_dict", raw)
+
             # load with strict=False so that:
             #  - 'conv1.weight', etc. map automatically into model.backbone.*
             #  - missing keys (e.g. classifier) are ignored
+
             model.load_state_dict(state_dict, strict=False)
         self.model = model.to(self.device).eval()
 
