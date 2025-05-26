@@ -6,7 +6,6 @@ from crosswalk_inspector.objects.CrosswalkPack import CrosswalkPack
 class RegionManager:
 
     def __init__(self, polygons_file=None):
-
         self.polygons_file = polygons_file
         self.crosswalk_packs = []
 
@@ -15,34 +14,31 @@ class RegionManager:
             "road": [],
             "sidewalk": [],
             "deletion_area": [],
-            "deletion_line": []
+            "deletion_line": [],
+            "crop_area": []     # <-- added
         }
 
         if self.polygons_file:
             self.load_polygons()
 
     def load_polygons(self):
-        """Load from file, then reset the pack- and polygon-level counters to avoid duplicate IDs."""
         if not self.polygons_file:
             return
         self._load_from_file(self.polygons_file)
 
         # ----- BEGIN COUNTER RESET LOGIC -----
-        # 1) Reset pack-level ID counter
         if self.crosswalk_packs:
             max_pid = max(pack.id for pack in self.crosswalk_packs)
         else:
             max_pid = 0
         CrosswalkPack._pid_counter = itertools.count(max_pid + 1)
 
-        # 2) Reset polygon-level ID counter
         poly_ids = []
         for pack in self.crosswalk_packs:
             if pack.crosswalk:
                 poly_ids.append(pack.crosswalk["id"])
             poly_ids.extend(p["id"] for p in pack.pedes_wait)
             poly_ids.extend(p["id"] for p in pack.car_wait)
-            # traffic_light circles share their own IDs
             poly_ids.extend(tl["id"] for tl in pack.traffic_light)
         if poly_ids:
             max_poly = max(poly_ids)
@@ -56,14 +52,9 @@ class RegionManager:
         self._save_to_file(self.polygons_file)
 
     def add_polygon(self, poly: dict):
-        """
-        Dispatch a new polygon to the appropriate container.
-        poly should be {"type": <region_type>, "points": […]}
-        """
         rtype = poly.get("type")
         pts = poly.get("points", [])
         if rtype in self.other_regions:
-            # standalone regions like detection_blackout, road, sidewalk, deletion_area
             self.add_other_region(rtype, pts)
         else:
             raise ValueError(f"RegionManager.add_polygon: unsupported type '{rtype}'")
@@ -81,7 +72,6 @@ class RegionManager:
     def add_other_region(self, region_type, points):
         poly_id = len(self.other_regions[region_type]) + 1
         self.other_regions[region_type].append({"id": poly_id, "points": points})
-
 
     def _load_from_file(self, file_path):
         p = Path(file_path)
@@ -140,7 +130,8 @@ class RegionManager:
             "pedes_wait": (0, 153, 0),
             "traffic_light": (0, 0, 255),
             "deletion_area": (255, 0, 255),
-            "deletion_line": (0, 255, 255)  # CYAN FOR LINE
+            "deletion_line": (0, 255, 255),
+            "crop_area": (0, 255, 0)  # Green for crop area
         }
         overlay = image.copy()
 
@@ -160,7 +151,7 @@ class RegionManager:
             for p in pack.car_wait:
                 _fill(p.get("points", []), area_colors["car_wait"])
             for tl in pack.traffic_light:
-                c = tl.get("center");
+                c = tl.get("center")
                 r = tl.get("radius")
                 if isinstance(c, (list, tuple)) and r is not None:
                     cv2.circle(overlay, tuple(c), r, area_colors["traffic_light"], -1)
@@ -169,6 +160,9 @@ class RegionManager:
             for poly in lst:
                 if rtype == "deletion_line":
                     _draw_line(poly.get("points", []), col)
+                elif rtype == "crop_area":
+                    arr = np.asarray(poly.get("points", []), np.int32).reshape((-1, 1, 2))
+                    cv2.rectangle(overlay, tuple(arr[0][0]), tuple(arr[1][0]), col, 2)
                 else:
                     _fill(poly.get("points", []), col)
         cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
@@ -176,62 +170,45 @@ class RegionManager:
 
     def _save_to_file(self, file_path):
         data = {"crosswalk_packs": []}
-
         for pack in self.crosswalk_packs:
-
             pd = {
                 "id": pack.id,
                 "crosswalk": pack.crosswalk.copy() if pack.crosswalk else None,
                 "car_wait": [p.copy() for p in pack.car_wait],
                 "pedes_wait": [p.copy() for p in pack.pedes_wait]
             }
-
             arr = []
             for tl in pack.traffic_light:
-
                 entry = next((e for e in arr if e["id"] == tl["id"] and e["type"] == tl["light_type"]), None)
-
                 if not entry:
                     entry = {"id": tl["id"], "type": tl["light_type"], "lights": {}}
                     arr.append(entry)
-
                 entry["lights"][tl["signal_color"]] = {"center": tl.get("center"), "radius": tl.get("radius")}
-
             if arr:
                 pd["traffic_lights"] = arr
-
             data["crosswalk_packs"].append(pd)
-
         data.update(self.other_regions)
         Path(file_path).write_text(json.dumps(data, indent=2))
 
     @property
     def region_polygons(self):
-        """
-        Flatten all regions into a list of dicts with 'type', 'pack_id', and either 'points' or ('center','radius').
-        """
         flattened = []
-        # Crosswalk packs
         for pack in self.crosswalk_packs:
-            # crosswalk polygon
             if pack.crosswalk:
                 p = pack.crosswalk.copy()
                 p["type"] = "crosswalk"
                 p["pack_id"] = pack.id
                 flattened.append(p)
-            # pedes_wait polygons
             for poly in pack.pedes_wait:
                 p = poly.copy()
                 p["type"] = "pedes_wait"
                 p["pack_id"] = pack.id
                 flattened.append(p)
-            # car_wait polygons
             for poly in pack.car_wait:
                 p = poly.copy()
                 p["type"] = "car_wait"
                 p["pack_id"] = pack.id
                 flattened.append(p)
-            # traffic_light circles
             for tl in pack.traffic_light:
                 circle = {
                     "id": tl["id"],
@@ -243,7 +220,6 @@ class RegionManager:
                     "signal_color": tl.get("signal_color")
                 }
                 flattened.append(circle)
-        # other standalone regions
         for rtype, lst in self.other_regions.items():
             for poly in lst:
                 p = poly.copy()
@@ -253,10 +229,6 @@ class RegionManager:
         return flattened
 
     def delete_pack(self, pack_id: int) -> bool:
-        """
-        Remove the entire CrosswalkPack with the given pack_id.
-        Returns True if a pack was found and deleted, False otherwise.
-        """
         for idx, pack in enumerate(self.crosswalk_packs):
             if pack.id == pack_id:
                 del self.crosswalk_packs[idx]
@@ -264,17 +236,6 @@ class RegionManager:
         return False
 
     def delete_polygon(self, region_type: str, poly_id: int, pack_id: int = None) -> bool:
-        """
-        Remove a single region element.
-
-        - For 'crosswalk': clears the pack.crosswalk if its id matches.
-        - For 'car_wait' / 'pedes_wait': removes the matching polygon from that list.
-        - For 'traffic_light': removes all circles belonging to that light group.
-        - For other standalone regions: removes from self.other_regions[region_type].
-
-        Returns True if something was removed, False otherwise.
-        """
-        # Helper to find the pack
         pack = None
         if pack_id is not None:
             pack = next((p for p in self.crosswalk_packs if p.id == pack_id), None)
@@ -298,14 +259,12 @@ class RegionManager:
             if not pack:
                 return False
             original = len(pack.traffic_light)
-            # remove every circle whose group-id == poly_id
             pack.traffic_light = [
                 tl for tl in pack.traffic_light
                 if tl.get("id") != poly_id
             ]
             return len(pack.traffic_light) != original
 
-        # standalone regions
         if region_type in self.other_regions:
             original = len(self.other_regions[region_type])
             self.other_regions[region_type] = [
