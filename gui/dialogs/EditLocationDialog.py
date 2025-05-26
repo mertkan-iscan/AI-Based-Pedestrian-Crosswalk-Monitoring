@@ -2,7 +2,7 @@ import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from utils import LocationManager
-from stream.FrameExtractor import FrameExtractor
+from stream.SingleFrameExtractor import SingleFrameExtractor
 from gui.dialogs.CropDialog import CropDialog
 from gui.dialogs.HomographySetterDialog import HomographySetterDialog
 
@@ -131,9 +131,9 @@ class EditLocationDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.critical(self, "Error", "Upload a bird’s-eye image first.")
             return
         if self.video_radio.isChecked():
-            frame = FrameExtractor.get_single_frame_from_file(self._updated["video_path"])
+            frame = SingleFrameExtractor.get_single_frame_from_file(self._updated["video_path"])
         else:
-            frame = FrameExtractor.get_single_frame_from_stream(self._updated["stream_url"])
+            frame = SingleFrameExtractor.get_single_frame_from_stream(self._updated["stream_url"])
         if frame is None:
             QtWidgets.QMessageBox.critical(self, "Error", "Cannot grab camera frame.")
             return

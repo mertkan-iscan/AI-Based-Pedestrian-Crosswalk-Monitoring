@@ -1,13 +1,13 @@
 from PyQt5 import QtWidgets
 
 from gui.dialogs.AddLocationDialog import AddLocationDialog
-from gui.region_editors.RegionEditorDialog import RegionEditorDialog
+from gui.dialogs.RegionEditorDialog import RegionEditorDialog
 from gui.windows.VideoPlayerWindow import VideoPlayerWindow
 
 from utils import LocationManager
 from utils.RegionManager import RegionManager
 
-from stream.FrameExtractor import FrameExtractor
+from stream.SingleFrameExtractor import SingleFrameExtractor
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -117,9 +117,9 @@ class MainWindow(QtWidgets.QMainWindow):
         editor = RegionManager(self.selected_location["polygons_file"])
         editor.load_polygons()
         if self.selected_location.get("video_path"):
-            frame = FrameExtractor.get_single_frame_from_file(self.selected_location["video_path"])
+            frame = SingleFrameExtractor.get_single_frame_from_file(self.selected_location["video_path"])
         else:
-            frame = FrameExtractor.get_single_frame_from_stream(self.selected_location["stream_url"])
+            frame = SingleFrameExtractor.get_single_frame_from_stream(self.selected_location["stream_url"])
         if frame is None:
             QtWidgets.QMessageBox.critical(self, "Error", "Could not retrieve a frame from the source.")
             return

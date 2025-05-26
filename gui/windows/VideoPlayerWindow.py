@@ -1,19 +1,18 @@
 import os
 import queue
 import time
-from collections import defaultdict
 
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from crosswalk_inspector.CrosswalkInspectThread import CrosswalkInspectThread
-from stream.MotWriterThread import MotWriterThread
+from stream.threads.MotWriterThread import MotWriterThread
 from utils.GlobalState import GlobalState
 from crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
-from gui.windows.OverlayWidget import OverlayWidget
-from stream.FrameProducerThread import FrameProducerThread
-from stream.VideoConsumerThread import VideoConsumerThread
-from stream.DetectionThread import DetectionThread
+from gui.windows.DetectionLayerWidget import DetectionLayerWidget
+from stream.threads.FrameProducerThread import FrameProducerThread
+from stream.threads.VideoConsumerThread import VideoConsumerThread
+from stream.threads.DetectionThread import DetectionThread
 from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricReporter import MetricReporter
 from utils.benchmark.MetricSignals import signals
@@ -81,7 +80,9 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.video_label = ScalableLabel()
         self.video_label.setAlignment(QtCore.Qt.AlignCenter)
         self.stack.addWidget(self.video_label)
-        self.overlay = OverlayWidget(video_container)
+
+        self.overlay = DetectionLayerWidget(video_container)
+
         if self.location.get("homography_matrix") is not None:
             H_inv = np.linalg.inv(np.array(self.location["homography_matrix"]))
             self.overlay.set_inverse_homography(H_inv)
@@ -92,6 +93,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         side_layout = QtWidgets.QVBoxLayout(side)
         self.objects_list = QtWidgets.QListWidget()
         side_layout.addWidget(self.objects_list)
+
         self.latency_label = QtWidgets.QLabel("Delay: 0.00 s")
         side_layout.addWidget(self.latency_label)
         self.queue_wait_label = QtWidgets.QLabel("Queue wait: 0.00 s")
@@ -108,6 +110,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         side_layout.addWidget(self.consumer_label)
         stop_btn = QtWidgets.QPushButton("Stop Stream")
         stop_btn.clicked.connect(self.stop_stream)
+
         side_layout.addWidget(stop_btn)
         side_layout.addWidget(QtWidgets.QLabel("Bird's Eye View", alignment=QtCore.Qt.AlignCenter))
         self.birds_eye_view = QtWidgets.QLabel(alignment=QtCore.Qt.AlignCenter)

@@ -3,7 +3,7 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from gui.dialogs.CropDialog import CropDialog
 from utils import LocationManager
-from stream.FrameExtractor import FrameExtractor
+from stream.SingleFrameExtractor import SingleFrameExtractor
 from gui.dialogs.HomographySetterDialog import HomographySetterDialog
 
 class AddLocationDialog(QtWidgets.QDialog):
@@ -121,9 +121,9 @@ class AddLocationDialog(QtWidgets.QDialog):
             )
             return
         if self.stream_radio.isChecked():
-            frame = FrameExtractor.get_single_frame_from_stream(self.stream_edit.text().strip())
+            frame = SingleFrameExtractor.get_single_frame_from_stream(self.stream_edit.text().strip())
         else:
-            frame = FrameExtractor.get_single_frame_from_file(self.video_path_edit.text().strip())
+            frame = SingleFrameExtractor.get_single_frame_from_file(self.video_path_edit.text().strip())
         if frame is None:
             QtWidgets.QMessageBox.critical(
                 self, "Error", "Could not retrieve a camera frame."

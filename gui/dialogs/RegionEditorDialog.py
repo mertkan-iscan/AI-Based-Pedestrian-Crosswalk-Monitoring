@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from gui.region_editors.CrosswalkPackEditorDialog import CrosswalkPackEditorDialog
+from gui.dialogs.CrosswalkPackEditorDialog import CrosswalkPackEditorDialog
 from utils.RegionManager import RegionManager
 
 class ClickableLabel(QtWidgets.QLabel):

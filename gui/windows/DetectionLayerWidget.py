@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 import numpy as np
 import time
 
-class OverlayWidget(QWidget):
+class DetectionLayerWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -13,10 +13,12 @@ class OverlayWidget(QWidget):
         self.scaled_pixmap_size = (1, 1)
         self.H_inv = None
         self._first_seen = {}
+
         # cost parameters
         self.motion_weight = 1.0
         self.appearance_weight = 1.0
         self.max_distance = None
+
         # widget attributes
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WA_TranslucentBackground)

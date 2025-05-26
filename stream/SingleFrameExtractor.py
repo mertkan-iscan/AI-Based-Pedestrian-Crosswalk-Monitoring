@@ -1,8 +1,6 @@
 import cv2
 
-from stream.StreamContainer import StreamContainer
-
-class FrameExtractor:
+class SingleFrameExtractor:
 
     @staticmethod
     def frame_generator(container):

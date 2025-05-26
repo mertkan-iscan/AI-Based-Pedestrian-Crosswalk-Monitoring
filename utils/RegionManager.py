@@ -15,7 +15,7 @@ class RegionManager:
             "sidewalk": [],
             "deletion_area": [],
             "deletion_line": [],
-            "crop_area": []     # <-- added
+            "crop_area": []
         }
 
         if self.polygons_file:

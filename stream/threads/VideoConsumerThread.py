@@ -4,7 +4,7 @@ import time
 import cv2
 from PyQt5 import QtCore, QtGui
 
-from stream.FrameProducerThread import wait_until
+from stream.threads.FrameProducerThread import wait_until
 from utils.benchmark.MetricSignals import signals
 
 
