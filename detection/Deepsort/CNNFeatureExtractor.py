@@ -8,7 +8,6 @@ import cv2
 import torchvision.transforms as T
 from torchvision.models import resnet50, ResNet50_Weights
 
-
 class ReIDModel(nn.Module):
     def __init__(self, embedding_dim: int = 512):
         super().__init__()
@@ -24,7 +23,6 @@ class ReIDModel(nn.Module):
         x = self.embedding(x)
         x = self.bnneck(x)
         return x
-
 
 class CNNFeatureExtractor:
     def __init__(

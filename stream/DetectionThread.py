@@ -41,6 +41,7 @@ class DetectionThread(QThread):
         homography_matrix,
         detection_fps,
         delay,
+        mot_writer=None,
         parent=None,
     ):
         super().__init__(parent)
@@ -48,6 +49,8 @@ class DetectionThread(QThread):
         self.queue = detection_queue
         self.delay = float(delay)
         self._run = True
+
+        self.mot_writer = mot_writer
 
         self.state = state
 
@@ -71,6 +74,13 @@ class DetectionThread(QThread):
                 self.H_inv = np.linalg.inv(np.asarray(homography_matrix, dtype=np.float32))
             except np.linalg.LinAlgError:
                 self.H_inv = None
+
+        # MOT format memory buffer
+        self.mot_output_file = "MOT17-03-FRCNN.txt"
+        self.frame_counter = 1
+        self._mot_lines_buffer = []
+        with open(self.mot_output_file, "w") as f:
+            pass
 
     def _mask_blackout(self, frame):
         masked = frame.copy()
@@ -140,14 +150,18 @@ class DetectionThread(QThread):
                 detection_fps=self.detection_fps
             )
 
+            if self.mot_writer is not None:
+                self.mot_writer.submit(self.frame_counter, tracks_map)
+            self.frame_counter += 1
+
             ids_to_remove = []
             objects_to_emit = []
             for tid, (surface_point, bbox) in tracks_map.items():
 
-                # if self._bbox_hits_deletion_line(bbox):
-                #     print(f"Deletion line hit – track {tid} bbox {bbox}")
-                #     ids_to_remove.append(tid)
-                #     continue
+                #if self._bbox_hits_deletion_line(bbox):
+                #    print(f"Deletion line hit – track {tid} bbox {bbox}")
+                #    ids_to_remove.append(tid)
+                #    continue
 
                 x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
@@ -202,6 +216,9 @@ class DetectionThread(QThread):
 
     def stop(self):
         self._run = False
+        # Write all MOT lines at once at the end
+        with open(self.mot_output_file, "w") as f:
+            f.writelines(self._mot_lines_buffer)
         # Cancel all timers
         for timer in getattr(self, "_timers", []):
             timer.cancel()

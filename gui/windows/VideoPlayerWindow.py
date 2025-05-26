@@ -7,6 +7,7 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from crosswalk_inspector.CrosswalkInspectThread import CrosswalkInspectThread
+from stream.MotWriterThread import MotWriterThread
 from utils.GlobalState import GlobalState
 from crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
 from gui.windows.OverlayWidget import OverlayWidget
@@ -142,6 +143,16 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         # 1) Source setup
         source = self.location.get("video_path") or self.location["stream_url"]
 
+        source_name = self.location["name"]
+        import os
+        base = os.path.basename(source_name)
+        name, _ = os.path.splitext(base)
+        mot_filename = f"{name}_MOT.txt"
+
+        # 3) MotWriterThread başlat
+        self.mot_writer = MotWriterThread(mot_filename)
+        self.mot_writer.start()
+
         # 2) Compute homography and its inverse
         homography = None
         H_inv = None
@@ -180,7 +191,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             global_state=self.state,
             tl_objects=self.producer.tl_objects,
             check_period=0.2,
-            homography_inv=H_inv      # ← pass the inverse homography here
+            homography_inv=H_inv
         )
         self.crosswalk_monitor.error_signal.connect(self._handle_error)
         self.crosswalk_monitor.start()
@@ -198,7 +209,8 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             state=self.state,
             homography_matrix=homography,
             detection_fps=self.detection_fps,
-            delay=self.delay_seconds
+            delay=self.delay_seconds,
+            mot_writer=self.mot_writer
         )
         self.detection_thread.detections_ready.connect(self._update_detection_list_panel)
         self.detection_thread.error_signal.connect(self._handle_error)
@@ -323,6 +335,9 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             if t:
                 t.stop()
                 setattr(self, attr, None)
+        if self.mot_writer:
+            self.mot_writer.stop()
+            self.mot_writer = None
         self.close()
 
     def closeEvent(self, event):

@@ -44,6 +44,7 @@ class FrameProducerThread(QtCore.QThread):
         editor: RegionManager = None,
         parent=None
     ):
+
         super().__init__(parent)
 
         if detection_fps is None or detection_fps <= 0:

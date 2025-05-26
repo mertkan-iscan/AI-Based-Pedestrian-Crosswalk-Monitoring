@@ -57,6 +57,11 @@ class OverlayWidget(QWidget):
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
+
+        small_font = painter.font()
+        small_font.setPointSize(8)
+        small_font.setBold(False)
+
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
         now = time.time()
         ow, oh = self.original_frame_size
@@ -88,6 +93,10 @@ class OverlayWidget(QWidget):
             painter.drawRect(rect)
 
             # draw ID and confidence
+            small_font = painter.font()
+            small_font.setPointSize(8)
+            small_font.setBold(False)
+            painter.setFont(small_font)
             painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))
             fm = painter.fontMetrics()
             lines = [f"ID: {obj.id}"]
@@ -118,15 +127,15 @@ class OverlayWidget(QWidget):
 
             # draw transformed centroids and foot-points unchanged…
             if hasattr(obj, 'surface_point') and obj.surface_point is not None:
-
                 cx, cy = self._to_pixel(obj.surface_point)
-
                 sx, sy = off_x + cx * scale, off_y + cy * scale
                 old_pen, old_brush = painter.pen(), painter.brush()
                 painter.setPen(QtGui.QPen(QtGui.QColor(0, 128, 255), 2))
                 painter.setBrush(QtGui.QColor(0, 128, 255))
                 painter.drawEllipse(QtCore.QPointF(sx, sy), 5, 5)
                 painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))
+                # use small font for TP text
+                painter.setFont(small_font)
                 painter.drawText(QtCore.QPointF(sx + 6, sy), f"TP: {obj.id}")
                 painter.setPen(old_pen)
                 painter.setBrush(old_brush)

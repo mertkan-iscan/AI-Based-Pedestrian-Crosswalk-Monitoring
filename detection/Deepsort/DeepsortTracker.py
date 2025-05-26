@@ -18,6 +18,7 @@ class DeepSortTracker:
         device: str = "cuda",
         appearance_weight: float = 0.5,
         motion_weight: float = 0.5,
+        iou_weight: float = 0.3,
         nn_budget: int = 50,
         homography_matrix=None,
         person_reid_path: str = "PPLR+CAJ_market1501_86.1.pth",
@@ -29,6 +30,7 @@ class DeepSortTracker:
         self.max_distance = max_distance
         self.appearance_weight = appearance_weight
         self.motion_weight = motion_weight
+        self.iou_weight = iou_weight
         self.homography_matrix = homography_matrix
         self.nn_budget = nn_budget
 
@@ -45,6 +47,20 @@ class DeepSortTracker:
         else:
             return (transformed[0], transformed[1])
 
+    def _iou(self, bbox1, bbox2):
+        xA = max(bbox1[0], bbox2[0])
+        yA = max(bbox1[1], bbox2[1])
+        xB = min(bbox1[2], bbox2[2])
+        yB = min(bbox1[3], bbox2[3])
+
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+        boxAArea = (bbox1[2] - bbox1[0] + 1) * (bbox1[3] - bbox1[1] + 1)
+        boxBArea = (bbox2[2] - bbox2[0] + 1) * (bbox2[3] - bbox2[1] + 1)
+        unionArea = float(boxAArea + boxBArea - interArea)
+        if unionArea == 0:
+            return 0.0
+        return interArea / unionArea
+
     def _compute_cost(self, detections, timestamp: float, detection_fps: float):
         n_tracks = len(self.tracks)
         n_dets = len(detections)
@@ -55,6 +71,7 @@ class DeepSortTracker:
         cost_matrix = np.zeros((n_tracks, n_dets), dtype=float)
         motion_matrix = np.zeros_like(cost_matrix)
         appearance_matrix = np.zeros_like(cost_matrix)
+        iou_matrix = np.zeros_like(cost_matrix)
 
         for i, track in enumerate(self.tracks):
             track_cls = track.bbox[4] if len(track.bbox) > 4 else PERSON_CLASS_IDX
@@ -72,6 +89,7 @@ class DeepSortTracker:
                     cost_matrix[i, j] = 1e6
                     motion_matrix[i, j] = 1e6
                     appearance_matrix[i, j] = 1e6
+                    iou_matrix[i, j] = 0.0
                     continue
 
                 m_dist = np.linalg.norm(np.asarray(pred_centroid) - np.asarray(det_centroid))
@@ -84,7 +102,14 @@ class DeepSortTracker:
                     a_dist = 1.0
                 appearance_matrix[i, j] = a_dist
 
-                cost_matrix[i, j] = self.motion_weight * m_dist + self.appearance_weight * a_dist
+                iou_score = self._iou(track.bbox, det_bbox)
+                iou_matrix[i, j] = iou_score
+
+                cost_matrix[i, j] = (
+                    self.motion_weight * m_dist
+                    + self.appearance_weight * a_dist
+                    #+ self.iou_weight * (1.0 - iou_score)
+                )
 
         return cost_matrix, motion_matrix, appearance_matrix
 

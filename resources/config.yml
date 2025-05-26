@@ -1,13 +1,13 @@
 yolo:
   device: cuda
-  version: yolov5m.pt
+  version: yolov5mu.pt
   imgsz: 640
 
-  conf: 0.30
+  conf: 0.60
   classes: [0,1,2,3,5,7]
   conf_per_class:
-    0: 0.30
-    2: 0.40
+    0: 0.50
+    2: 0.60
   
 database:
   db_file: resources/object_paths.db
@@ -15,7 +15,7 @@ database:
 
 deepsort:
   max_disappeared: 40
-  max_distance: 15
+  max_distance: 10
   device: "cuda"
   appearance_weight: 0.5
   motion_weight: 0.5
