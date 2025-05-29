@@ -75,12 +75,8 @@ class DetectionThread(QThread):
             except np.linalg.LinAlgError:
                 self.H_inv = None
 
-        # MOT format memory buffer
-        self.mot_output_file = "MOT17-03-FRCNN.txt"
         self.frame_counter = 1
         self._mot_lines_buffer = []
-        with open(self.mot_output_file, "w") as f:
-            pass
 
     def _mask_blackout(self, frame):
         masked = frame.copy()
@@ -216,10 +212,6 @@ class DetectionThread(QThread):
 
     def stop(self):
         self._run = False
-        # Write all MOT lines at once at the end
-        with open(self.mot_output_file, "w") as f:
-            f.writelines(self._mot_lines_buffer)
-        # Cancel all timers
         for timer in getattr(self, "_timers", []):
             timer.cancel()
         self._timers.clear()

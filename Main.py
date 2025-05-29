@@ -23,7 +23,6 @@ def main():
     # task_processor_thread.start()
     # print("path DB recorder started")
 
-
     metrics_thread = QThread()
     reporter = MetricReporter()
     reporter.moveToThread(metrics_thread)
@@ -34,7 +33,6 @@ def main():
     signals.delay_logged.connect(     reporter.on_delay)
 
     metrics_thread.start()
-
 
     app = QtWidgets.QApplication(sys.argv)
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())

@@ -73,7 +73,8 @@ class CrosswalkPackMonitor:
     def process_frame(self, detections, now, tl_objects=None):
         for det in detections:
             tid = det.id
-            cls = DetectedObject.CLASS_NAMES.get(det.object_type, "unknown")
+            cls = det.object_type
+
             if tid not in self.entities:
                 self.entities[tid] = EntityState(tid, cls)
             st = self.entities[tid]
@@ -91,17 +92,17 @@ class CrosswalkInspectThread(QtCore.QThread):
     inspection_ready = QtCore.pyqtSignal(list, float)
     error_signal     = QtCore.pyqtSignal(str)
 
-    # thresholds
     T_PED_WAIT = 2.0
 
-    def __init__(self,
-                 editor: RegionManager,
-                 global_state: GlobalState,
-                 tl_objects: list[TrafficLight],
-                 check_period: float,
-                 homography_inv=None, parent=None
+    def __init__(
+        self,
+        editor: RegionManager,
+        global_state: GlobalState,
+        tl_objects: list[TrafficLight],
+        check_period: float,
+        homography_inv=None,
+        parent=None
     ):
-
         super().__init__(parent)
 
         print("Loading Crosswalk Packs:")
@@ -116,25 +117,29 @@ class CrosswalkInspectThread(QtCore.QThread):
             colors = list(tl.lights.keys())
             print(f"  TL ID: {tl.id}, Pack ID: {tl.pack_id}, Colors: {colors}, Initial status: {tl.status}")
 
-        self.editor      = editor
-        self.state       = global_state
-        self.tl_objects  = tl_objects
-        self.check_period = check_period
-        self._last_check = 0.0
-        self._running    = True
-        self.H_inv       = homography_inv
+        self.editor        = editor
+        self.state         = global_state
+        self.tl_objects    = tl_objects
+        self.check_period  = check_period
+        self._last_check   = 0.0
+        self._running      = True
+        self.H_inv         = homography_inv
 
-        self.packs = {pack.id: pack for pack in editor.crosswalk_packs}
+        self.packs         = {pack.id: pack for pack in editor.crosswalk_packs}
         self._last_tl_status = {tl.id: None for tl in tl_objects}
-        self.monitors = {
+        self.monitors      = {
             pack.id: CrosswalkPackMonitor(
                 pack.id,
                 pack.crosswalk["points"],
                 pack.pedes_wait,
                 pack.car_wait,
                 homography_inv
-            ) for pack in editor.crosswalk_packs
+            )
+            for pack in editor.crosswalk_packs
         }
+
+        # sequence state: pack_id -> { track_id: { 'start':0|1, 'step':0|1|2 } }
+        self._ped_seq      = {pack_id: {} for pack_id in self.monitors}
 
     def get_effective_traffic_light_status(self, pack_id, tl_objects, light_type):
         vehicle_tl = None
@@ -201,7 +206,7 @@ class CrosswalkInspectThread(QtCore.QThread):
                 objects, ts = self.state.get()
                 if not objects:
                     continue
-                now_ts = datetime.fromtimestamp(ts)
+                now_ts  = datetime.fromtimestamp(ts)
                 timestr = now_ts.strftime("%H:%M:%S.%f")[:-3]
 
                 for mon in self.monitors.values():
@@ -209,35 +214,67 @@ class CrosswalkInspectThread(QtCore.QThread):
 
                 lines = []
                 for pack_id, mon in self.monitors.items():
-                    vehicle_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'vehicle')
+                    vehicle_status    = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'vehicle')
                     pedestrian_status = self.get_effective_traffic_light_status(pack_id, self.tl_objects, 'pedestrian')
+
                     for tid, st in mon.entities.items():
-                        # Vehicle event
+                        # --- sequence detection: ped_wait_0 ↔ ped_wait_1 via crosswalk ---
+                        dur_pw0 = st.durations.pop('ped_wait_0', None)
+                        dur_pw1 = st.durations.pop('ped_wait_1', None)
+                        seq     = self._ped_seq.setdefault(pack_id, {}).setdefault(
+                            tid, {'start': None, 'step': 0}
+                        )
+
+                        # final exit: step==2 + exit of opposite wait region
+                        if seq['step'] == 2:
+                            if seq['start'] == 0 and dur_pw1 is not None:
+                                lines.append(f"[{timestr}] Pedestrian {tid} completed crossing Pack:{pack_id}")
+                                seq['step'] = 0
+                            elif seq['start'] == 1 and dur_pw0 is not None:
+                                lines.append(f"[{timestr}] Pedestrian {tid} completed crossing Pack:{pack_id}")
+                                seq['step'] = 0
+
+                        # initial exit: record start of crossing
+                        if seq['step'] == 0:
+                            if dur_pw0 is not None:
+                                seq['start'] = 0
+                                seq['step']  = 1
+                            elif dur_pw1 is not None:
+                                seq['start'] = 1
+                                seq['step']  = 1
+
+                        # --- existing vehicle event ---
                         if st.class_name != 'person':
                             dur = st.durations.pop('crosswalk', None)
                             if dur is not None and vehicle_status == 'green':
                                 lines.append(
                                     f"[{timestr}] Event: Vehicle {tid} passed through crosswalk in Pack:{pack_id} (dur={dur:.2f}s)"
                                 )
-                        # Pedestrian event (crossed during red/yellow)
+
+                        # --- existing pedestrian event & crosswalk‐exit detection for sequence ---
                         if st.class_name == 'person':
-                            dur = st.durations.pop('crosswalk', None)
-                            if dur is not None:
+                            dur_cross = st.durations.pop('crosswalk', None)
+                            if dur_cross is not None and seq['step'] == 1:
+                                seq['step'] = 2
+
+                            if dur_cross is not None:
                                 if pedestrian_status in ('red', 'yellow'):
                                     lines.append(
-                                        f"[{timestr}] VIOLATION: Person {tid} crossed on {pedestrian_status.upper()} pedestrian light in Pack:{pack_id} (dur={dur:.2f}s)"
+                                        f"[{timestr}] VIOLATION: Pedestrian {tid} crossed on {pedestrian_status.upper()} pedestrian light in Pack:{pack_id} (dur={dur_cross:.2f}s)"
                                     )
                                 elif pedestrian_status == 'green':
                                     lines.append(
-                                        f"[{timestr}] Event: Person {tid} crossed on green pedestrian light in Pack:{pack_id} (dur={dur:.2f}s)"
+                                        f"[{timestr}] Event: Pedestrian {tid} crossed on green pedestrian light in Pack:{pack_id} (dur={dur_cross:.2f}s)"
                                     )
 
                 if lines:
                     print("\n".join(lines), flush=True)
 
                 self.inspection_ready.emit(objects, ts)
+
         except Exception as e:
             self.error_signal.emit(str(e))
+
 
     def stop(self):
         self._running = False
