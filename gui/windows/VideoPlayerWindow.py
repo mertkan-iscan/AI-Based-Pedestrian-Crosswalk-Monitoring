@@ -16,7 +16,6 @@ from stream.threads.DetectionThread import DetectionThread
 from utils.ConfigManager import ConfigManager
 from utils.benchmark.MetricReporter import MetricReporter
 from utils.benchmark.MetricSignals import signals
-from utils.benchmark.ReportManager import ReportManager
 from utils.RegionManager import RegionManager
 
 
@@ -344,8 +343,4 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.close()
 
     def closeEvent(self, event):
-        if self.location.get("video_path") and not self._report_shown:
-            self._report_shown = True
-            report = ReportManager(self.location["video_path"]).save_per_second_report()
-            QtWidgets.QMessageBox.information(self, "Performance Report", f"Per-second report saved to:{report}")
         event.accept()

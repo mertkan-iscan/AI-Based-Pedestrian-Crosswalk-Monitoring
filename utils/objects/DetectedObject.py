@@ -1,5 +1,3 @@
-# DetectedObject.py
-
 class DetectedObject:
 
     CLASS_NAMES = {

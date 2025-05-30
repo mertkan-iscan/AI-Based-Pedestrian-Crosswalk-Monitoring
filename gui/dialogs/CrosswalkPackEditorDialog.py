@@ -1,8 +1,6 @@
 import cv2, numpy as np, math
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from crosswalk_inspector.objects.CrosswalkPack import CrosswalkPack
-
 
 class ClickableLabel(QtWidgets.QLabel):
     pressed = QtCore.pyqtSignal(int, int)

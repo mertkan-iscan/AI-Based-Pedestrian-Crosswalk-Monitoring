@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from crosswalk_inspector.objects.DetectedObject import DetectedObject
+from utils.objects.DetectedObject import DetectedObject
 from detection.Inference import run_inference
 from detection.Deepsort.DeepsortTracker import DeepSortTracker
 from utils.RegionManager import RegionManager

@@ -5,7 +5,7 @@ import queue
 from PyQt5 import QtCore
 from stream.StreamContainer import StreamContainer
 from utils.RegionManager import RegionManager
-from crosswalk_inspector.objects.TrafficLight import TrafficLight
+from utils.objects.TrafficLight import TrafficLight
 from concurrent.futures import ThreadPoolExecutor
 
 def wait_until(target: float):

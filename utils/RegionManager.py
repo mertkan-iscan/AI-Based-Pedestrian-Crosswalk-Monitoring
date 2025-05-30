@@ -1,7 +1,7 @@
 import itertools
 import json
 from pathlib import Path
-from crosswalk_inspector.objects.CrosswalkPack import CrosswalkPack
+from utils.objects.CrosswalkPack import CrosswalkPack
 
 class RegionManager:
 
