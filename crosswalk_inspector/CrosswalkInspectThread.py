@@ -1,10 +1,12 @@
+# Updated CrosswalkInspectThread.py with full sidewalk-transition and trajectory logging
+
 import time
 from datetime import datetime
-
 
 from PyQt5 import QtCore
 
 from crosswalk_inspector.CrosswalkPackMonitor import CrosswalkPackMonitor
+from crosswalk_inspector.Region import Region
 from utils.objects.TrafficLight import TrafficLight
 from utils.RegionManager import RegionManager
 from utils.GlobalState import GlobalState
@@ -15,13 +17,13 @@ class CrosswalkInspectThread(QtCore.QThread):
     error_signal = QtCore.pyqtSignal(str)
 
     def __init__(
-        self,
-        editor: RegionManager,
-        global_state: GlobalState,
-        tl_objects: list[TrafficLight],
-        check_period: float,
-        homography_inv=None,
-        parent=None
+            self,
+            editor: RegionManager,
+            global_state: GlobalState,
+            tl_objects: list[TrafficLight],
+            check_period: float,
+            homography_inv=None,
+            parent=None
     ):
         super().__init__(parent)
         self.global_state = global_state
@@ -41,6 +43,14 @@ class CrosswalkInspectThread(QtCore.QThread):
             self._detect_vehicle_events,
             self._detect_pedestrian_events
         ]
+
+        self.sidewalk_regions = {
+            poly["id"]: Region(poly["points"], homography_inv)
+            for poly in editor.other_regions.get("sidewalk", [])
+        }
+        self.sidewalk_assignments = {}
+        self.trajectory_buffer = {}
+        self.origin_sidewalk = {}
 
     def get_light_status(self, pack_id, light_type):
         vehicle = next((tl for tl in self.tl_objects if tl.pack_id == pack_id and tl.type == 'vehicle'), None)
@@ -78,28 +88,24 @@ class CrosswalkInspectThread(QtCore.QThread):
             if vehicle_status in ('green', 'red'):
                 if light_type == 'vehicle':
                     return vehicle_status
-                else:
-                    return 'red' if vehicle_status == 'green' else 'green'
-            elif vehicle_status == 'yellow':
+                return 'red' if vehicle_status == 'green' else 'green'
+            if vehicle_status == 'yellow':
                 return 'yellow'
-            else:
-                return 'UNKNOWN'
-        elif pedestrian_tl and not vehicle_tl:
+            return 'UNKNOWN'
+
+        if pedestrian_tl and not vehicle_tl:
             if pedestrian_status in ('green', 'red'):
                 if light_type == 'pedestrian':
                     return pedestrian_status
-                else:
-                    return 'red' if pedestrian_status == 'green' else 'green'
-            elif pedestrian_status == 'yellow':
+                return 'red' if pedestrian_status == 'green' else 'green'
+            if pedestrian_status == 'yellow':
                 return 'yellow'
-            else:
-                return 'UNKNOWN'
-        elif vehicle_tl and pedestrian_tl:
-            if (
-                vehicle_status in ('green', 'red')
-                and pedestrian_status in ('green', 'red')
-                and vehicle_status == pedestrian_status
-            ):
+            return 'UNKNOWN'
+
+        if vehicle_tl and pedestrian_tl:
+            if (vehicle_status in ('green', 'red')
+                    and pedestrian_status in ('green', 'red')
+                    and vehicle_status == pedestrian_status):
                 print(f"[WARNING] Inconsistent traffic light status in pack {pack_id}: "
                       f"vehicle={vehicle_status}, pedestrian={pedestrian_status}")
             if vehicle_status == 'UNKNOWN' and pedestrian_status in ('green', 'red'):
@@ -108,10 +114,9 @@ class CrosswalkInspectThread(QtCore.QThread):
                 pedestrian_status = 'red' if vehicle_status == 'green' else 'green'
             if light_type == 'vehicle':
                 return vehicle_status if vehicle_status is not None else 'UNKNOWN'
-            else:
-                return pedestrian_status if pedestrian_status is not None else 'UNKNOWN'
-        else:
-            return 'UNKNOWN'
+            return pedestrian_status if pedestrian_status is not None else 'UNKNOWN'
+
+        return 'UNKNOWN'
 
     def run(self):
         try:
@@ -128,6 +133,44 @@ class CrosswalkInspectThread(QtCore.QThread):
                 timestamp = datetime.fromtimestamp(ts)
                 timestr = timestamp.strftime("%H:%M:%S.%f")[:-3]
 
+                # Sidewalk transition & trajectory buffering
+                for det in objects:
+                    if det.object_type != 'person':
+                        continue
+                    tid = det.id
+                    pt = getattr(det, 'surface_point', None) or getattr(det, 'raw_surface_point', None)
+                    if pt is None:
+                        continue
+
+                    prev = self.sidewalk_assignments.get(tid)
+                    curr = None
+                    for sid, region in self.sidewalk_regions.items():
+                        if region.contains(pt):
+                            curr = sid
+                            break
+
+                    if prev != curr:
+                        print(f"[DEBUG {timestr}] Pedestrian {tid} sidewalk changed from "
+                              f"{prev if prev is not None else 'None'} to "
+                              f"{curr if curr is not None else 'None'}", flush=True)
+
+                        if prev is not None and curr is None:
+                            self.trajectory_buffer[tid] = [pt]
+                            self.origin_sidewalk[tid] = prev
+
+                        elif curr is not None:
+                            origin = self.origin_sidewalk.pop(tid, prev)
+                            traj = self.trajectory_buffer.pop(tid, [])
+                            print(f"[{timestr}] Pedestrian {tid} moved from "
+                                  f"sidewalk_{origin} to sidewalk_{curr}, trajectory: {traj}", flush=True)
+
+                        self.sidewalk_assignments[tid] = curr
+
+                    else:
+                        if prev is None and tid in self.trajectory_buffer:
+                            self.trajectory_buffer[tid].append(pt)
+
+                # Process crosswalk pack events
                 for monitor in self.monitors.values():
                     monitor.process_frame(objects, timestamp)
 
@@ -138,9 +181,12 @@ class CrosswalkInspectThread(QtCore.QThread):
                     for state in monitor.entities.values():
                         for handler in self.event_handlers:
                             events.extend(handler(pack_id, state, v_status, p_status, timestr))
+
                 if events:
                     self._handle_events(events)
+
                 self.inspection_ready.emit(objects, ts)
+
         except Exception as e:
             self.error_signal.emit(str(e))
 
@@ -158,11 +204,10 @@ class CrosswalkInspectThread(QtCore.QThread):
             if (seq['start'] == 0 and d1 is not None) or (seq['start'] == 1 and d0 is not None):
                 events.append(f"[{timestr}] Pedestrian {state.id} completed crossing Pack:{pack_id}")
                 seq['step'] = 0
-        if seq['step'] == 0:
-            if d0 is not None:
-                seq.update({'start': 0, 'step': 1})
-            elif d1 is not None:
-                seq.update({'start': 1, 'step': 1})
+        if seq['step'] == 0 and d0 is not None:
+            seq.update({'start': 0, 'step': 1})
+        elif seq['step'] == 0 and d1 is not None:
+            seq.update({'start': 1, 'step': 1})
         return events
 
     def _detect_vehicle_events(self, pack_id, state, v_status, p_status, timestr):
@@ -183,35 +228,33 @@ class CrosswalkInspectThread(QtCore.QThread):
             if d is not None:
                 status = p_status.lower()
                 key = 'VIOLATION' if status in ('red', 'yellow') else 'Event'
-                events.append(f"[{timestr}] {key}: Pedestrian {state.id} crossed on {status} light in Pack:{pack_id} ({d:.2f}s)")
+                events.append(f"[{timestr}] {key}: Pedestrian {state.id} crossed on "
+                              f"{status} light in Pack:{pack_id} ({d:.2f}s)")
         return events
-
 
     def _detect_sequence_events(self, pack_id, state, v_status, p_status, timestr):
         seq = self.seq_state.setdefault(pack_id, {}).setdefault(state.id, {'start': None, 'step': 0})
         events = []
         d0 = state.durations.pop('ped_wait_0', None)
         d1 = state.durations.pop('ped_wait_1', None)
-
         if seq['step'] == 2 and ((seq['start'] == 0 and d1 is not None) or (seq['start'] == 1 and d0 is not None)):
             events.append(f"[{timestr}] Pedestrian {state.id} completed crossing Pack:{pack_id}")
             monitor = self.monitors[pack_id]
             for v_state in monitor.entities.values():
-                if v_state.class_name == 'person':
-                    continue
-                if 'crosswalk' in v_state.current_regions:
-                    events.append(f"[{timestr}] Violation: Vehicle {v_state.id} entered crosswalk during pedestrian crossing Pack:{pack_id}")
-                elif any(r.startswith('car_wait_') for r in v_state.current_regions):
-                    events.append(f"[{timestr}] Vehicle {v_state.id} yielded to pedestrian {state.id} in Pack:{pack_id}")
+                if v_state.class_name != 'person':
+                    if 'crosswalk' in v_state.current_regions:
+                        events.append(f"[{timestr}] Violation: Vehicle {v_state.id} entered crosswalk during "
+                                      f"pedestrian crossing Pack:{pack_id}")
+                    elif any(r.startswith('car_wait_') for r in v_state.current_regions):
+                        events.append(f"[{timestr}] Vehicle {v_state.id} yielded to pedestrian "
+                                      f"{state.id} in Pack:{pack_id}")
             seq['step'] = 0
-
-        if seq['step'] == 0:
-            if d0 is not None:
-                seq.update({'start': 0, 'step': 1})
-            elif d1 is not None:
-                seq.update({'start': 1, 'step': 1})
-
+        if seq['step'] == 0 and d0 is not None:
+            seq.update({'start': 0, 'step': 1})
+        elif seq['step'] == 0 and d1 is not None:
+            seq.update({'start': 1, 'step': 1})
         return events
+
     def _handle_events(self, events):
         print("\n".join(events), flush=True)
 

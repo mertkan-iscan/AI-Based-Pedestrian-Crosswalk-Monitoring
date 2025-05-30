@@ -21,12 +21,12 @@ class Benchmark:
             self.frame_count         = 0
             self.detection_times     = []
             self.inspection_times    = []
-            self.queue_waits         = []  # NEW
-            self.postproc_times      = []  # NEW
-            self.scheduling_delays   = []  # NEW
-            self.total_latencies     = []  # NEW
-            self.consumer_latencies  = []  # NEW
-            self.per_second          = {}  # {sec_idx: {'frames':int,'delays':[]}}
+            self.queue_waits         = []
+            self.postproc_times      = []
+            self.scheduling_delays   = []
+            self.total_latencies     = []
+            self.consumer_latencies  = []
+            self.per_second          = {}
 
     # existing...
     def log_frame(self):
