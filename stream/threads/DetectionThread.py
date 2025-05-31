@@ -16,10 +16,8 @@ from utils.benchmark.MetricSignals import signals
 
 def lines_intersect(a1, a2, b1, b2):
     def ccw(A, B, C):
-        return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
-
+        return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
     return (ccw(a1, b1, b2) != ccw(a2, b1, b2)) and (ccw(a1, a2, b1) != ccw(a1, a2, b2))
-
 
 def point_to_segment_dist(px, py, x1, y1, x2, y2):
     dx, dy = x2 - x1, y2 - y1
@@ -30,21 +28,21 @@ def point_to_segment_dist(px, py, x1, y1, x2, y2):
     proj_y = y1 + t * dy
     return ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
 
-
 class DetectionThread(QThread):
+
     detections_ready = pyqtSignal(list, float)
     error_signal = pyqtSignal(str)
 
     def __init__(
-            self,
-            polygons_file: str,
-            detection_queue: "queue.Queue",
-            state: GlobalState,
-            homography_matrix,
-            detection_fps,
-            delay,
-            mot_writer=None,
-            parent=None,
+        self,
+        polygons_file: str,
+        detection_queue: "queue.Queue",
+        state: GlobalState,
+        homography_matrix,
+        detection_fps,
+        delay,
+        mot_writer=None,
+        parent=None,
     ):
         super().__init__(parent)
         self.detection_fps = detection_fps
@@ -58,12 +56,12 @@ class DetectionThread(QThread):
 
         cfg = ConfigManager().get_deepsort_config()
         self.tracker = DeepSortTracker(
-            max_disappeared=cfg.get("max_disappeared"),
-            max_distance=cfg.get("max_distance"),
-            device=cfg.get("device"),
-            appearance_weight=cfg.get("appearance_weight"),
-            motion_weight=cfg.get("motion_weight"),
-            homography_matrix=homography_matrix
+            max_disappeared   = cfg.get("max_disappeared"),
+            max_distance      = cfg.get("max_distance"),
+            device            = cfg.get("device"),
+            appearance_weight = cfg.get("appearance_weight"),
+            motion_weight     = cfg.get("motion_weight"),
+            homography_matrix = homography_matrix
         )
 
         self.editor = RegionManager(polygons_file)
@@ -141,7 +139,7 @@ class DetectionThread(QThread):
             signals.detection_logged.emit(t_inf_end - t_inf_start)
 
             t_post_start = time.time()
-            tracks_map, removed_ids = self.tracker.update(
+            tracks_map, removed_ids= self.tracker.update(
                 detections,
                 frame=masked,
                 timestamp=display_time,
@@ -156,7 +154,7 @@ class DetectionThread(QThread):
             objects_to_emit = []
             for tid, (surface_point, bbox) in tracks_map.items():
 
-                # if self._bbox_hits_deletion_line(bbox):
+                #if self._bbox_hits_deletion_line(bbox):
                 #    print(f"Deletion line hit – track {tid} bbox {bbox}")
                 #    ids_to_remove.append(tid)
                 #    continue

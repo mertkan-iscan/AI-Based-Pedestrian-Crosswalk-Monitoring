@@ -1,6 +1,5 @@
 import os
 import queue
-import time
 
 import numpy as np
 from PyQt5 import QtCore
@@ -130,11 +129,11 @@ class VideoPlayerBackend(QtCore.QObject):
 
     def stop(self):
         for thread in (
-            self.video_consumer,
-            self.detection_thread,
-            self.producer,
-            self.crosswalk_monitor,
-            self.tl_monitor,
+                self.video_consumer,
+                self.detection_thread,
+                self.producer,
+                self.crosswalk_monitor,
+                self.tl_monitor,
         ):
             if thread:
                 thread.stop()

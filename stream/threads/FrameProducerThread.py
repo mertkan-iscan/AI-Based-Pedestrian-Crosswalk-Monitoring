@@ -8,7 +8,6 @@ from utils.RegionManager import RegionManager
 from utils.objects.TrafficLight import TrafficLight
 from concurrent.futures import ThreadPoolExecutor
 
-
 def wait_until(target: float):
     delta = max(0.0, target - time.time())
     if delta > 0:
@@ -20,7 +19,6 @@ def wait_until(target: float):
         timer.start(int(delta * 1000))
         loop.exec_()
 
-
 def _drop_old_and_put(q: queue.Queue, item, limit: int):
     while q.qsize() >= limit:
         try:
@@ -29,22 +27,22 @@ def _drop_old_and_put(q: queue.Queue, item, limit: int):
             break
     q.put_nowait(item)
 
-
 class FrameProducerThread(QtCore.QThread):
+
     error_signal = QtCore.pyqtSignal(str)
     traffic_light_crops = QtCore.pyqtSignal(list)
 
     def __init__(
-            self,
-            source: str,
-            video_queue: queue.Queue,
-            detection_queue: queue.Queue,
-            detection_fps: float,
-            traffic_light_fps: float = None,
-            use_av: bool = False,
-            editor: RegionManager = None,
-            max_resolution: tuple = (1920, 1080),
-            parent=None
+        self,
+        source: str,
+        video_queue: queue.Queue,
+        detection_queue: queue.Queue,
+        detection_fps: float,
+        traffic_light_fps: float = None,
+        use_av: bool = False,
+        editor: RegionManager = None,
+        max_resolution: tuple = (1920, 1080),
+        parent=None
     ):
         super().__init__(parent)
 
@@ -53,19 +51,19 @@ class FrameProducerThread(QtCore.QThread):
         if traffic_light_fps is None or traffic_light_fps <= 0:
             raise ValueError("traffic_light_fps must be > 0")
 
-        self.source = source
-        self.video_q = video_queue
-        self.detection_q = detection_queue
-        self.detection_fps = detection_fps
+        self.source            = source
+        self.video_q           = video_queue
+        self.detection_q       = detection_queue
+        self.detection_fps     = detection_fps
         self.traffic_light_fps = traffic_light_fps
-        self._tl_interval = 1.0 / traffic_light_fps
-        self._last_tl_emit = 0.0
-        self.use_av = use_av
-        self._run = True
-        self.editor = editor
-        self.max_resolution = max_resolution
+        self._tl_interval      = 1.0 / traffic_light_fps
+        self._last_tl_emit     = 0.0
+        self.use_av            = use_av
+        self._run              = True
+        self.editor            = editor
+        self.max_resolution    = max_resolution
 
-        self.tl_objects = []
+        self.tl_objects        = []
         if self.editor:
             for pack in self.editor.crosswalk_packs:
                 groups = {}
