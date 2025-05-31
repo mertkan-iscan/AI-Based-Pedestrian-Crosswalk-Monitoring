@@ -30,6 +30,7 @@ class ScalableLabel(QtWidgets.QLabel):
     def minimumSizeHint(self):
         return QtCore.QSize(0, 0)
 
+
 class VideoPlayerWindow(QtWidgets.QMainWindow):
     def __init__(self, location, parent=None):
         super().__init__(parent)
@@ -41,7 +42,6 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.current_pixmap = None
         self.original_frame_size = (1, 1)
         self.scaled_pixmap_size = (1, 1)
-        self._report_shown = False
         self.state = GlobalState()
 
         cfg = ConfigManager()
@@ -50,7 +50,8 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.traffic_light_fps = cfg.get_traffic_light_fps()
 
         birds_eye_path = self.location.get("birds_eye_image")
-        self.birds_eye_pixmap = QtGui.QPixmap(birds_eye_path) if birds_eye_path and os.path.exists(birds_eye_path) else None
+        self.birds_eye_pixmap = QtGui.QPixmap(birds_eye_path) if birds_eye_path and os.path.exists(
+            birds_eye_path) else None
         self._build_ui()
         self._metric_reporter = MetricReporter()
 
@@ -64,6 +65,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         signals.scheduling_logged.connect(self._update_scheduling_label)
         signals.total_latency_logged.connect(self._update_total_latency_label)
         signals.consumer_logged.connect(self._update_consumer_label)
+
         self.video_queue = queue.Queue()
         self.detection_queue = queue.Queue()
         self._start_threads()
@@ -142,28 +144,14 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.consumer_label.setText(f"Consumer latency: {dt:.2f} s")
 
     def _start_threads(self):
-        # 1) Source setup
-        source = self.location.get("video_path") or self.location["stream_url"]
 
-        source_name = self.location["name"]
-        import os
-        base = os.path.basename(source_name)
-        name, _ = os.path.splitext(base)
-        mot_filename = f"{name}_MOT.txt"
+        source, source_name, mot_filename = self.setup_video_source(self.location)
 
-        # 3) MotWriterThread başlat
+        # 2) MotWriterThread başlat
         self.mot_writer = MotWriterThread(mot_filename)
         self.mot_writer.start()
 
-        # 2) Compute homography and its inverse
-        homography = None
-        H_inv = None
-        if self.location.get("homography_matrix") is not None:
-            homography = np.array(self.location["homography_matrix"], dtype=np.float32)
-            try:
-                H_inv = np.linalg.inv(homography)
-            except np.linalg.LinAlgError:
-                H_inv = None
+        homography, H_inv = self.compute_homography_and_inverse(self.location)
 
         # 3) Start the traffic‐light monitor
         self.tl_monitor = TrafficLightMonitorThread(delay=self.delay_seconds)
@@ -217,6 +205,27 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.detection_thread.detections_ready.connect(self._update_detection_list_panel)
         self.detection_thread.error_signal.connect(self._handle_error)
         self.detection_thread.start()
+
+    def setup_video_source(self, location):
+        source = location.get("video_path") or location.get("stream_url")
+        if not source:
+            raise ValueError("Location must provide either 'video_path' or 'stream_url'.")
+        source_name = location.get("name", "unknown_source")
+        base = os.path.basename(source_name)
+        name, _ = os.path.splitext(base)
+        mot_filename = f"{name}_MOT.txt"
+        return source, source_name, mot_filename
+
+    def compute_homography_and_inverse(self, location):
+        homography = None
+        H_inv = None
+        if location.get("homography_matrix") is not None:
+            homography = np.array(location["homography_matrix"], dtype=np.float32)
+            try:
+                H_inv = np.linalg.inv(homography)
+            except np.linalg.LinAlgError:
+                H_inv = None
+        return homography, H_inv
 
     def _update_frame(self, q_img):
         signals.frame_logged.emit()
