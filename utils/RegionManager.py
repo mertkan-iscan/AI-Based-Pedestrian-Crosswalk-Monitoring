@@ -70,7 +70,8 @@ class RegionManager:
         return pack
 
     def add_other_region(self, region_type, points):
-        poly_id = len(self.other_regions[region_type]) + 1
+        existing_ids = [poly["id"] for poly in self.other_regions[region_type]]
+        poly_id = max(existing_ids, default=0) + 1
         self.other_regions[region_type].append({"id": poly_id, "points": points})
 
     def _load_from_file(self, file_path):

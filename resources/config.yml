@@ -1,6 +1,6 @@
 yolo:
   device: cuda
-  version: yolov5s.pt
+  version: yolov5m.pt
   imgsz: 640
 
   conf: 0.50

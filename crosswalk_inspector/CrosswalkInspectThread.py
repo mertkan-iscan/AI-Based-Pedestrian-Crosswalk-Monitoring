@@ -133,7 +133,6 @@ class CrosswalkInspectThread(QtCore.QThread):
                 timestamp = datetime.fromtimestamp(ts)
                 timestr = timestamp.strftime("%H:%M:%S.%f")[:-3]
 
-                # Sidewalk transition & trajectory buffering
                 for det in objects:
                     if det.object_type != 'person':
                         continue
@@ -141,34 +140,7 @@ class CrosswalkInspectThread(QtCore.QThread):
                     pt = getattr(det, 'surface_point', None) or getattr(det, 'raw_surface_point', None)
                     if pt is None:
                         continue
-
-                    prev = self.sidewalk_assignments.get(tid)
-                    curr = None
-                    for sid, region in self.sidewalk_regions.items():
-                        if region.contains(pt):
-                            curr = sid
-                            break
-
-                    if prev != curr:
-                        print(f"[DEBUG {timestr}] Pedestrian {tid} sidewalk changed from "
-                              f"{prev if prev is not None else 'None'} to "
-                              f"{curr if curr is not None else 'None'}", flush=True)
-
-                        if prev is not None and curr is None:
-                            self.trajectory_buffer[tid] = [pt]
-                            self.origin_sidewalk[tid] = prev
-
-                        elif curr is not None:
-                            origin = self.origin_sidewalk.pop(tid, prev)
-                            traj = self.trajectory_buffer.pop(tid, [])
-                            print(f"[{timestr}] Pedestrian {tid} moved from "
-                                  f"sidewalk_{origin} to sidewalk_{curr}, trajectory: {traj}", flush=True)
-
-                        self.sidewalk_assignments[tid] = curr
-
-                    else:
-                        if prev is None and tid in self.trajectory_buffer:
-                            self.trajectory_buffer[tid].append(pt)
+                    self._handle_pedestrian_sidewalk_transition(tid, pt, timestr)
 
                 # Process crosswalk pack events
                 for monitor in self.monitors.values():
@@ -254,6 +226,31 @@ class CrosswalkInspectThread(QtCore.QThread):
         elif seq['step'] == 0 and d1 is not None:
             seq.update({'start': 1, 'step': 1})
         return events
+
+    def _handle_pedestrian_sidewalk_transition(self, tid, pt, timestr):
+        prev = self.sidewalk_assignments.get(tid)
+        curr = None
+        for sid, region in self.sidewalk_regions.items():
+            if region.contains(pt):
+                curr = sid
+                break
+
+        # If entering a sidewalk from 'None', check if we previously exited a sidewalk
+        if prev is None and curr is not None:
+            origin = self.origin_sidewalk.pop(tid, None)
+            traj = self.trajectory_buffer.pop(tid, [])
+            if origin is not None and origin != curr:
+                print(f"[{timestr}] Pedestrian {tid} moved from sidewalk_{origin} to sidewalk_{curr}, trajectory: {traj}")
+
+        # If exiting a sidewalk (curr becomes None), remember which sidewalk they left and start path buffering
+        if prev is not None and curr is None:
+            self.origin_sidewalk[tid] = prev
+            self.trajectory_buffer[tid] = [pt]
+        # If outside sidewalks, continue path buffering
+        elif prev is None and curr is None and tid in self.trajectory_buffer:
+            self.trajectory_buffer[tid].append(pt)
+
+        self.sidewalk_assignments[tid] = curr
 
     def _handle_events(self, events):
         print("\n".join(events), flush=True)
