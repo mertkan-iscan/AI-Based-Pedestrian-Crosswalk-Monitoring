@@ -3,12 +3,12 @@ yolo:
   version: yolov5m.pt
   imgsz: 640
 
-  conf: 0.50
+  conf: 0.2
   classes: [0,1,2,3,5,7]
   conf_per_class:
-    0: 0.50
+    0: 0.2
     1: 0.70
-    2: 0.60
+    2: 0.2
   
 database:
   db_file: resources/object_paths.db

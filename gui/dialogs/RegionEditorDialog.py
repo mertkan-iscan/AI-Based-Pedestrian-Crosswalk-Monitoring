@@ -61,8 +61,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
             ("Road", "road"),
             ("Sidewalk", "sidewalk"),
             ("Deletion Area", "deletion_area"),
-            ("Deletion Line", "deletion_line"),
-            ("Crop Area", "crop_area")   # <-- Added crop area here
+            ("Deletion Line", "deletion_line")
         ]
         for i, (txt, t) in enumerate(types):
             btn = QtWidgets.QPushButton(txt)
@@ -142,6 +141,8 @@ class RegionEditorDialog(QtWidgets.QDialog):
                     ci = QtWidgets.QTreeWidgetItem(tl_item, [tl["signal_color"], ""])
                     ci.setData(0, QtCore.Qt.UserRole, ("traffic_light", gid, pack.id))
         for rtype, regions in self.editor.other_regions.items():
+            if rtype == "crop_area":
+                continue
             parent = QtWidgets.QTreeWidgetItem(self.tree, [rtype, ""])
             parent.setData(0, QtCore.Qt.UserRole, (rtype, None, None))
             for reg in regions:
@@ -223,8 +224,6 @@ class RegionEditorDialog(QtWidgets.QDialog):
             pts = np.array(self.current_points, np.int32).reshape(-1, 1, 2)
             if self.current_region_type == "deletion_line":
                 cv2.polylines(img, [pts], False, (0, 255, 255), 3)
-            elif self.current_region_type == "crop_area":
-                cv2.rectangle(img, tuple(self.current_points[0]), tuple(self.current_points[1]), (0, 255, 0), 2)
             else:
                 cv2.polylines(img, [pts], False, (0, 0, 255), 1)
 
@@ -238,8 +237,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
             "road": (50, 50, 50),
             "sidewalk": (255, 255, 0),
             "deletion_area": (255, 0, 255),
-            "deletion_line": (0, 255, 255),
-            "crop_area": (0, 255, 0)
+            "deletion_line": (0, 255, 255)
         }
 
         for pack in self.editor.crosswalk_packs:
@@ -288,14 +286,13 @@ class RegionEditorDialog(QtWidgets.QDialog):
                     cv2.circle(img, tuple(lt["center"]), lt["radius"], (0, 0, 255), 2)
 
         for rtype, regs in self.editor.other_regions.items():
+            if rtype == "crop_area":
+                continue
             col = other_cols.get(rtype, (255, 255, 255))
             for poly in regs:
                 pts = np.array(poly["points"], np.int32).reshape(-1, 1, 2)
                 if rtype == "deletion_line":
                     cv2.polylines(img, [pts], False, col, 3)
-                elif rtype == "crop_area":
-                    if len(poly["points"]) == 2:
-                        cv2.rectangle(img, tuple(poly["points"][0]), tuple(poly["points"][1]), col, 2)
                 else:
                     cv2.polylines(img, [pts], True, col, 2)
                 cx = int(sum(pt[0] for pt in poly["points"]) / len(poly["points"]))
@@ -305,8 +302,6 @@ class RegionEditorDialog(QtWidgets.QDialog):
                 if self.highlight == (rtype, poly["id"], None):
                     if rtype == "deletion_line":
                         cv2.polylines(img, [pts], False, (0, 0, 255), 4)
-                    elif rtype == "crop_area" and len(poly["points"]) == 2:
-                        cv2.rectangle(img, tuple(poly["points"][0]), tuple(poly["points"][1]), (0, 0, 255), 3)
                     else:
                         cv2.polylines(img, [pts], True, (0, 0, 255), 4)
         qimg = QtGui.QImage(
@@ -321,9 +316,7 @@ class RegionEditorDialog(QtWidgets.QDialog):
         self.image_label.setPixmap(pix)
 
     def finalize_polygon(self):
-        if self.current_region_type == "crop_area":
-            min_points = 2
-        elif self.current_region_type == "deletion_line":
+        if self.current_region_type == "deletion_line":
             min_points = 2
         else:
             min_points = 3

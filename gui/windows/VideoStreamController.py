@@ -13,7 +13,7 @@ from stream.threads.DetectionThread import DetectionThread
 from utils.ConfigManager import ConfigManager
 
 
-class VideoPlayerBackend(QtCore.QObject):
+class VideoStreamController(QtCore.QObject):
     frame_ready = QtCore.pyqtSignal(object)
     detection_update = QtCore.pyqtSignal()
     error_occurred = QtCore.pyqtSignal(str)
@@ -54,6 +54,7 @@ class VideoPlayerBackend(QtCore.QObject):
         self.tl_monitor.error_signal.connect(self._on_error)
         self.tl_monitor.start()
 
+        use_av = "stream_url" in self.location
         self.producer = FrameProducerThread(
             source,
             self.video_queue,
@@ -62,6 +63,7 @@ class VideoPlayerBackend(QtCore.QObject):
             traffic_light_fps=self.traffic_light_fps,
             editor=self.editor
         )
+
         self.producer.traffic_light_crops.connect(
             self.tl_monitor.on_new_crops, QtCore.Qt.QueuedConnection
         )

@@ -4,7 +4,7 @@ import time
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from gui.windows.VideoPlayerBackend import VideoPlayerBackend
+from gui.windows.VideoStreamController import VideoStreamController
 from utils.GlobalState import GlobalState
 from utils.RegionManager import RegionManager
 from utils.benchmark.MetricReporter import MetricReporter
@@ -58,7 +58,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         signals.total_latency_logged.connect(self._update_total_latency_label)
         signals.consumer_logged.connect(self._update_consumer_label)
 
-        self.backend = VideoPlayerBackend(self.location, self.state, self.editor)
+        self.backend = VideoStreamController(self.location, self.state, self.editor)
         self.backend.frame_ready.connect(self._update_frame)
         self.backend.detection_update.connect(self._update_detection_list_panel)
         self.backend.error_occurred.connect(self._handle_error)
@@ -94,16 +94,22 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
         self.latency_label = QtWidgets.QLabel("Delay: 0.00 s")
         side_layout.addWidget(self.latency_label)
+
         self.queue_wait_label = QtWidgets.QLabel("Queue wait: 0.00 s")
         side_layout.addWidget(self.queue_wait_label)
+
         self.inference_label = QtWidgets.QLabel("Inference: 0.00 s")
         side_layout.addWidget(self.inference_label)
+
         self.postproc_label = QtWidgets.QLabel("Post-process: 0.00 s")
         side_layout.addWidget(self.postproc_label)
+
         self.scheduling_label = QtWidgets.QLabel("Scheduling delay: 0.00 s")
         side_layout.addWidget(self.scheduling_label)
+
         self.total_latency_label = QtWidgets.QLabel("Total latency: 0.00 s")
         side_layout.addWidget(self.total_latency_label)
+
         self.consumer_label = QtWidgets.QLabel("Consumer latency: 0.00 s")
         side_layout.addWidget(self.consumer_label)
 

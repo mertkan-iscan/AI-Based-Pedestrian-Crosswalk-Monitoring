@@ -14,8 +14,7 @@ class RegionManager:
             "road": [],
             "sidewalk": [],
             "deletion_area": [],
-            "deletion_line": [],
-            "crop_area": []
+            "deletion_line": []
         }
 
         if self.polygons_file:
@@ -132,7 +131,6 @@ class RegionManager:
             "traffic_light": (0, 0, 255),
             "deletion_area": (255, 0, 255),
             "deletion_line": (0, 255, 255),
-            "crop_area": (0, 255, 0)  # Green for crop area
         }
         overlay = image.copy()
 
