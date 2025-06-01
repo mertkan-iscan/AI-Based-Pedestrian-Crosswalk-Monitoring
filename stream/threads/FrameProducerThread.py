@@ -1,3 +1,5 @@
+import collections
+
 import cv2
 import time
 import queue
@@ -20,6 +22,7 @@ def wait_until(target: float):
         loop.exec_()
 
 def _drop_old_and_put(q: queue.Queue, item, limit: int):
+    print(">>> Dropping old items")
     while q.qsize() >= limit:
         try:
             q.get_nowait()
@@ -175,6 +178,9 @@ class FrameProducerThread(QtCore.QThread):
         det_interval = 1.0 / self.detection_fps
         crop_rect = self._get_crop_rect()
 
+        frame_buffer = collections.deque()
+        buffer_delay = 3.0
+
         with StreamContainer.get_container_context(self.source) as container:
             for packet in container.demux(video=0):
                 for frame_pkt in packet.decode():
@@ -187,27 +193,35 @@ class FrameProducerThread(QtCore.QThread):
                     sched_time = wall_start + frame_time
                     capture_time = time.time()
                     img = frame_pkt.to_ndarray(format='bgr24')
+
                     if crop_rect:
                         img = self._crop_frame(img, crop_rect)
                     img = self._downscale_if_needed(img, self.max_resolution)
-                    item = (img, capture_time, sched_time)
+
+                    frame_buffer.append((img.copy(), capture_time, sched_time))
 
                     now = capture_time
-                    if self.tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
-                        img_for_crop = img.copy()
-                        self._crop_executor.submit(self._produce_crop, img_for_crop, capture_time)
-                        self._last_tl_emit = now
+                    while frame_buffer and (now - frame_buffer[0][1]) >= buffer_delay:
+                        buffered_img, buffered_capture_time, buffered_sched_time = frame_buffer.popleft()
 
-                    if self.video_q.maxsize:
-                        _drop_old_and_put(self.video_q, item, self.video_q.maxsize)
-                    else:
-                        self.video_q.put(item)
-                    if (capture_time - last_det) >= det_interval:
-                        if self.detection_q.maxsize:
-                            _drop_old_and_put(self.detection_q, item, self.detection_q.maxsize)
+                        item = (buffered_img, buffered_capture_time, buffered_sched_time)
+
+                        if self.video_q.maxsize:
+                            _drop_old_and_put(self.video_q, item, self.video_q.maxsize)
                         else:
-                            self.detection_q.put(item)
-                        last_det += det_interval
+                            self.video_q.put(item)
+
+                        if (buffered_capture_time - last_det) >= det_interval:
+                            if self.detection_q.maxsize:
+                                _drop_old_and_put(self.detection_q, item, self.detection_q.maxsize)
+                            else:
+                                self.detection_q.put(item)
+                            last_det = buffered_capture_time
+
+                        if self.tl_objects and (now - self._last_tl_emit) >= self._tl_interval:
+                            img_for_crop = buffered_img.copy()
+                            self._crop_executor.submit(self._produce_crop, img_for_crop, buffered_capture_time)
+                            self._last_tl_emit = now
 
     def stop(self):
         self._run = False

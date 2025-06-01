@@ -4,9 +4,19 @@ import time
 import cv2
 from PyQt5 import QtCore, QtGui
 
-from stream.threads.FrameProducerThread import wait_until
+
 from utils.benchmark.MetricSignals import signals
 
+def wait_until(target: float):
+    delta = max(0.0, target - time.time())
+    if delta > 0:
+        loop = QtCore.QEventLoop()
+        timer = QtCore.QTimer()
+        timer.setTimerType(QtCore.Qt.PreciseTimer)
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        timer.start(int(delta * 1000))
+        loop.exec_()
 
 class VideoConsumerThread(QtCore.QThread):
     frame_ready = QtCore.pyqtSignal(QtGui.QImage)

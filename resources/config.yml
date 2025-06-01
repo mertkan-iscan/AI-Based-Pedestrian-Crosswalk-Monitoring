@@ -7,6 +7,7 @@ yolo:
   classes: [0,1,2,3,5,7]
   conf_per_class:
     0: 0.50
+    1: 0.70
     2: 0.60
   
 database:
@@ -17,8 +18,12 @@ deepsort:
   max_disappeared: 40
   max_distance: 10
   device: "cuda"
-  appearance_weight: 0.5
-  motion_weight: 0.5
+
+  appearance_weight: 0.4
+  motion_weight: 0.4
+  iou_weight: 0.2
+
+  nn_budget: 100
 
 detection_thread:
   detection_fps: 10

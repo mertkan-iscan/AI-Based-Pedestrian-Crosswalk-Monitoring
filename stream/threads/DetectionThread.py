@@ -61,6 +61,8 @@ class DetectionThread(QThread):
             device            = cfg.get("device"),
             appearance_weight = cfg.get("appearance_weight"),
             motion_weight     = cfg.get("motion_weight"),
+            iou_weight        = cfg.get("iou_weight"),
+            nn_budget         = cfg.get("nn_budget"),
             homography_matrix = homography_matrix
         )
 
@@ -142,7 +144,7 @@ class DetectionThread(QThread):
             tracks_map, removed_ids= self.tracker.update(
                 detections,
                 frame=masked,
-                timestamp=display_time,
+                timestamp=capture_time,
                 detection_fps=self.detection_fps
             )
 

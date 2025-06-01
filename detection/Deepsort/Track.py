@@ -10,7 +10,7 @@ class Track:
         bbox: Tuple[int, int, int, int, int],
         calibrated_centroid: Tuple[float, float],
         feature: Optional[np.ndarray] = None,
-        nn_budget: int = 50,
+        nn_budget: int = 100,
         velocity_history_size: int = 5,
     ):
         self.track_id = track_id

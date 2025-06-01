@@ -17,9 +17,9 @@ class DeepSortTracker:
         max_distance: float = 0.9,
         device: str = "cuda",
         appearance_weight: float = 0.5,
-        motion_weight: float = 0.5,
-        iou_weight: float = 0.3,
-        nn_budget: int = 50,
+        motion_weight: float = 0.3,
+        iou_weight: float = 0.2,
+        nn_budget: int = 100,
         homography_matrix=None,
         person_reid_path: str = "PPLR+CAJ_market1501_86.1.pth",
         vehicle_reid_path: str = "PPLR+CAJ_veri_45.3.pth",
@@ -108,7 +108,7 @@ class DeepSortTracker:
                 cost_matrix[i, j] = (
                     self.motion_weight * m_dist
                     + self.appearance_weight * a_dist
-                    #+ self.iou_weight * (1.0 - iou_score)
+                    + self.iou_weight * (1.0 - iou_score)
                 )
 
         return cost_matrix, motion_matrix, appearance_matrix
