@@ -4,7 +4,7 @@ import time
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from gui.windows.VideoStreamController import VideoStreamController
+from stream.threads.VideoStreamController import VideoStreamController
 from utils.GlobalState import GlobalState
 from utils.RegionManager import RegionManager
 from utils.benchmark.MetricReporter import MetricReporter

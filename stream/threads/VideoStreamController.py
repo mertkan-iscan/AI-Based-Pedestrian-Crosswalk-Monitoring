@@ -60,6 +60,7 @@ class VideoStreamController(QtCore.QObject):
             self.video_queue,
             self.detection_queue,
             detection_fps=self.detection_fps,
+            use_av=use_av,
             traffic_light_fps=self.traffic_light_fps,
             editor=self.editor
         )

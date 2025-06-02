@@ -3,16 +3,12 @@ yolo:
   version: yolov5m.pt
   imgsz: 640
 
-  conf: 0.2
+  conf: 0.50
   classes: [0,1,2,3,5,7]
   conf_per_class:
-    0: 0.2
+    0: 0.50
     1: 0.70
-    2: 0.2
-  
-database:
-  db_file: resources/object_paths.db
-  record_paths: False
+    2: 0.60
 
 deepsort:
   max_disappeared: 40
