@@ -26,6 +26,7 @@ class ScalableLabel(QtWidgets.QLabel):
 
 class VideoPlayerWindow(QtWidgets.QMainWindow):
     def __init__(self, location, parent=None):
+
         super().__init__(parent)
         self.setWindowTitle(f"Live Stream – {location['name']}")
         self.location = location
@@ -173,7 +174,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
 
         self.objects_list.clear()
         for obj in objects:
-            self.objects_list.addItem(f"ID:{obj.id}  {obj.object_type}  {obj.region}")
+            self.objects_list.addItem(f"ID:{obj.id}  {obj.object_type}")
 
         self.overlay.set_detections(objects, self.original_frame_size, self.scaled_pixmap_size)
         self.overlay.raise_()

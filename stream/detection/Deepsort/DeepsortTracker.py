@@ -4,26 +4,27 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from concurrent.futures import ThreadPoolExecutor
 
-from detection.Deepsort.CNNFeatureExtractor import CNNFeatureExtractor
-from detection.Deepsort.Track import Track
+from stream.detection.Deepsort.CNNFeatureExtractor import CNNFeatureExtractor
+from stream.detection.Deepsort.Track import Track
 
 PERSON_CLASS_IDX = 0
-VEHICLE_CLASS_IDX = 2
+VEHICLE_CLASSES = [1,2,3,5,7]
 
 class DeepSortTracker:
     def __init__(
         self,
-        max_disappeared: int = 50,
-        max_distance: float = 0.9,
-        device: str = "cuda",
-        appearance_weight: float = 0.5,
-        motion_weight: float = 0.3,
-        iou_weight: float = 0.2,
-        nn_budget: int = 100,
-        homography_matrix=None,
-        person_reid_path: str = "PPLR+CAJ_market1501_86.1.pth",
-        vehicle_reid_path: str = "PPLR+CAJ_veri_45.3.pth",
+        max_disappeared: int,
+        max_distance: float,
+        device: str,
+        appearance_weight: float,
+        motion_weight: float,
+        iou_weight: float,
+        nn_budget: int,
+        homography_matrix,
+        person_reid_path: str,
+        vehicle_reid_path: str,
     ):
+
         self.next_track_id = 0
         self.tracks: list[Track] = []
         self.max_disappeared = max_disappeared
@@ -42,10 +43,11 @@ class DeepSortTracker:
     def calibrate_point(self, point, homography_matrix):
         pt = np.array([point[0], point[1], 1.0], dtype=np.float32)
         transformed = homography_matrix @ pt
+
         if transformed[2] != 0:
-            return (transformed[0] / transformed[2], transformed[1] / transformed[2])
+            return transformed[0] / transformed[2], transformed[1] / transformed[2]
         else:
-            return (transformed[0], transformed[1])
+            return transformed[0], transformed[1]
 
     def _iou(self, bbox1, bbox2):
         xA = max(bbox1[0], bbox2[0])
@@ -138,6 +140,7 @@ class DeepSortTracker:
         # Build detection list: each entry is (calibrated_centroid, bbox_with_conf, feature)
         detections = []
         if features is None and frame is not None:
+
             bboxes_person = []
             indices_person = []
             bboxes_vehicle = []
@@ -161,7 +164,7 @@ class DeepSortTracker:
                 if cls == PERSON_CLASS_IDX:
                     bboxes_person.append((x1, y1, x2, y2))
                     indices_person.append(idx)
-                elif cls == VEHICLE_CLASS_IDX:
+                elif cls in VEHICLE_CLASSES:
                     bboxes_vehicle.append((x1, y1, x2, y2))
                     indices_vehicle.append(idx)
                 else:
@@ -207,7 +210,7 @@ class DeepSortTracker:
                     crop = frame[y1:y2, x1:x2]
                     if cls == PERSON_CLASS_IDX:
                         det_feat = self.person_extractor.extract_features([crop])[0]
-                    elif cls == VEHICLE_CLASS_IDX:
+                    elif cls in VEHICLE_CLASSES:
                         det_feat = self.vehicle_extractor.extract_features([crop])[0]
                     else:
                         det_feat = self.person_extractor.extract_features([crop])[0]

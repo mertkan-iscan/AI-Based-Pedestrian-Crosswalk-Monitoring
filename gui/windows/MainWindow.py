@@ -4,7 +4,7 @@ from gui.dialogs.AddLocationDialog import AddLocationDialog
 from gui.dialogs.RegionEditorDialog import RegionEditorDialog
 from gui.windows.VideoPlayerWindow import VideoPlayerWindow
 
-from utils import LocationManager
+from utils.LocationManager import LocationManager
 from utils.RegionManager import RegionManager
 
 from stream.SingleFrameExtractor import SingleFrameExtractor
@@ -54,6 +54,10 @@ class MainWindow(QtWidgets.QMainWindow):
         edit_location_btn.clicked.connect(self.open_edit_location_dialog)
         btn_layout.addWidget(edit_location_btn)
 
+        edit_config_btn = QtWidgets.QPushButton("Edit Config")
+        edit_config_btn.clicked.connect(self.open_edit_config_dialog)
+        btn_layout.addWidget(edit_config_btn)
+
         delete_btn = QtWidgets.QPushButton("Delete Location")
         delete_btn.clicked.connect(self.delete_location)
         btn_layout.addWidget(delete_btn)
@@ -82,7 +86,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def refresh_lists(self):
         self.stream_list.clear()
         self.video_list.clear()
-        self.locations = LocationManager.load_locations()
+        lm = LocationManager()
+        self.locations = lm.load_locations()
+
         for loc in self.locations:
             if loc.get("stream_url"):
                 self.stream_list.addItem(loc["name"])
@@ -150,6 +156,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.video_window = VideoPlayerWindow(self.selected_location)
         self.video_window.show()
 
+    def open_edit_config_dialog(self):
+        if not self.selected_location:
+            QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
+            return
+        from gui.dialogs.EditConfigDialog import EditConfigDialog
+        dialog = EditConfigDialog(self.selected_location, self)
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            lm = LocationManager()
+            self.locations = lm.load_locations()
+
     def delete_location(self):
         if not self.selected_location:
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
@@ -163,6 +179,6 @@ class MainWindow(QtWidgets.QMainWindow):
         confirmation.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         confirmation.setDefaultButton(QtWidgets.QMessageBox.No)
         if confirmation.exec_() == QtWidgets.QMessageBox.Yes:
-            LocationManager.delete_location(self.selected_location)
+            LocationManager().delete_location(self.selected_location)
             self.selected_location = None
             self.refresh_lists()

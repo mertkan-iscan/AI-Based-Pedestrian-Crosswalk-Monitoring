@@ -5,9 +5,9 @@ from datetime import datetime
 
 from PyQt5 import QtCore
 
-from crosswalk_inspector.CrosswalkPackMonitor import CrosswalkPackMonitor
-from crosswalk_inspector.Region import Region
-from utils.objects.TrafficLight import TrafficLight
+from stream.crosswalk_inspector.CrosswalkPackMonitor import CrosswalkPackMonitor
+from stream.crosswalk_inspector.Region import Region
+from stream.crosswalk_inspector.TrafficLight import TrafficLight
 from utils.RegionManager import RegionManager
 from utils.GlobalState import GlobalState
 
@@ -235,18 +235,17 @@ class CrosswalkInspectThread(QtCore.QThread):
                 curr = sid
                 break
 
-        # If entering a sidewalk from 'None', check if we previously exited a sidewalk
         if prev is None and curr is not None:
             origin = self.origin_sidewalk.pop(tid, None)
             traj = self.trajectory_buffer.pop(tid, [])
             if origin is not None and origin != curr:
                 print(f"[{timestr}] Pedestrian {tid} moved from sidewalk_{origin} to sidewalk_{curr}, trajectory: {traj}")
 
-        # If exiting a sidewalk (curr becomes None), remember which sidewalk they left and start path buffering
         if prev is not None and curr is None:
             self.origin_sidewalk[tid] = prev
             self.trajectory_buffer[tid] = [pt]
-        # If outside sidewalks, continue path buffering
+
+        # if outside sidewalks, continue path buffering
         elif prev is None and curr is None and tid in self.trajectory_buffer:
             self.trajectory_buffer[tid].append(pt)
 

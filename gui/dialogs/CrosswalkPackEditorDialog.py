@@ -25,8 +25,6 @@ class ClickableLabel(QtWidgets.QLabel):
         super().mouseReleaseEvent(e)
 
 
-
-
 class CrosswalkPackEditorDialog(QtWidgets.QDialog):
     def __init__(self, frozen_frame, parent=None, region_manager=None):
         super().__init__(parent)
@@ -139,8 +137,8 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
 
         cols = {
             "crosswalk": (0, 255, 255),
-            "car_wait":  (255, 102, 102),
-            "pedes_wait":(0, 153, 0)
+            "car_wait": (255, 102, 102),
+            "pedes_wait": (0, 153, 0)
         }
         phases = ["crosswalk", "car_wait", "pedes_wait"]
 
@@ -199,12 +197,12 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
             # light mode
             if getattr(self, "current_light", None):
                 colors = (
-                    ["red","yellow","green"]
+                    ["red", "yellow", "green"]
                     if self.current_light["type"] == "vehicle"
-                    else ["red","green"]
+                    else ["red", "green"]
                 )
                 placed = len(self.current_light["lights"])
-                total  = len(colors)
+                total = len(colors)
                 if placed < total:
                     nc = colors[placed]
                     self.stage_label.setText(f"Draw {nc} circle ({placed}/{total})")
@@ -343,4 +341,3 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         # persist and close
         self.manager.save_polygons()
         self.accept()
-

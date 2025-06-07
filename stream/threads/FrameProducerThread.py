@@ -7,7 +7,7 @@ import queue
 from PyQt5 import QtCore
 from stream.StreamContainer import StreamContainer
 from utils.RegionManager import RegionManager
-from utils.objects.TrafficLight import TrafficLight
+from stream.crosswalk_inspector.TrafficLight import TrafficLight
 from concurrent.futures import ThreadPoolExecutor
 
 def wait_until(target: float):
@@ -41,9 +41,9 @@ class FrameProducerThread(QtCore.QThread):
         video_queue: queue.Queue,
         detection_queue: queue.Queue,
         detection_fps: float,
-        traffic_light_fps: float = None,
-        use_av: bool = False,
-        editor: RegionManager = None,
+        traffic_light_fps: float,
+        use_av: bool,
+        editor: RegionManager,
         max_resolution: tuple = (1920, 1080),
         parent=None
     ):

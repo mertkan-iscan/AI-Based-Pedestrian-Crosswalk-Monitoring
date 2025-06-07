@@ -1,7 +1,7 @@
 from collections import deque
 from typing import List, Tuple, Optional
 import numpy as np
-from detection.Deepsort.KalmanFilter import KalmanFilter
+from stream.detection.Deepsort.KalmanFilter import KalmanFilter
 
 class Track:
     def __init__(

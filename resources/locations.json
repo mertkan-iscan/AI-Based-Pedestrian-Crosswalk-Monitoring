@@ -66,13 +66,91 @@
                 1.0
             ]
         ],
-        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg"
+        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg",
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.5,
+                "classes": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    5,
+                    7
+                ],
+                "conf_per_class": {
+                    "0": 0.5,
+                    "1": 0.7,
+                    "2": 0.6
+                }
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.21,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": false
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
     },
     {
         "name": "zafer video 1",
         "video_path": "D:/CSE_492_project/konya_live_videos/zafer_cloudy_noon.mp4",
         "polygons_file": "resources\\location_regions\\region_polygons_zafer_video_1.json",
-        "birds_eye_image": null
+        "birds_eye_image": null,
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.5,
+                "classes": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    5,
+                    7
+                ],
+                "conf_per_class": {
+                    "0": 0.5,
+                    "1": 0.7,
+                    "2": 0.6
+                }
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.2,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": false
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
     },
     {
         "name": "yeni meral live",
@@ -100,7 +178,46 @@
                 -0.012308442493684261,
                 1.0
             ]
-        ]
+        ],
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.5,
+                "classes": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    5,
+                    7
+                ],
+                "conf_per_class": {
+                    "0": 0.5,
+                    "1": 0.7,
+                    "2": 0.6
+                }
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.2,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": false
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
     },
     {
         "name": "tram video 1",
@@ -123,13 +240,91 @@
                 0.005430220929595602,
                 1.0
             ]
-        ]
+        ],
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.5,
+                "classes": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    5,
+                    7
+                ],
+                "conf_per_class": {
+                    "0": 0.5,
+                    "1": 0.7,
+                    "2": 0.6
+                }
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.2,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": false
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
     },
     {
         "name": "mevlana rainy 1",
         "polygons_file": "resources\\location_regions\\region_polygons_mevlana_rainy_1.json",
         "video_path": "D:/CSE_492_project/konya_live_videos/mevlana_rainy_afternoon.mp4",
-        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg"
+        "birds_eye_image": "C:\\Users\\merti\\Documents\\python_projects\\konya_0.5\\resources\\satellite_images\\satellite_view_cropped.jpg",
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.5,
+                "classes": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    5,
+                    7
+                ],
+                "conf_per_class": {
+                    "0": 0.5,
+                    "1": 0.7,
+                    "2": 0.6
+                }
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.2,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": false
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
     },
     {
         "name": "istanbul nuh kuyusu",
@@ -145,6 +340,45 @@
     {
         "name": "test",
         "video_path": "C:/Users/merti/Desktop/MOT17-04-SDP-raw.mp4",
-        "polygons_file": "resources\\location_regions\\region_polygons_test.json"
+        "polygons_file": "resources\\location_regions\\region_polygons_test.json",
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.5,
+                "classes": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    5,
+                    7
+                ],
+                "conf_per_class": {
+                    "0": 0.5,
+                    "1": 0.7,
+                    "2": 0.6
+                }
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.2,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 10,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": true
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
     }
 ]

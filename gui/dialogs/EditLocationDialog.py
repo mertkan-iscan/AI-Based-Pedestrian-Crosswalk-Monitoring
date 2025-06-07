@@ -1,10 +1,11 @@
 import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
-from utils import LocationManager
+
 from stream.SingleFrameExtractor import SingleFrameExtractor
 from gui.dialogs.CropDialog import CropDialog
 from gui.dialogs.HomographySetterDialog import HomographySetterDialog
+from utils.LocationManager import LocationManager
 
 
 class EditLocationDialog(QtWidgets.QDialog):
@@ -171,7 +172,7 @@ class EditLocationDialog(QtWidgets.QDialog):
 
         # Attempt to update via LocationManager (will enforce uniqueness)
         try:
-            LocationManager.update_location(self._original, updated)
+            LocationManager().update_location(self._original, updated)
         except ValueError as e:
             QtWidgets.QMessageBox.warning(self, "Validation", str(e))
             return

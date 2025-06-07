@@ -14,14 +14,12 @@ class DetectedObject:
         object_id,
         object_type,
         bbox,
-        surface_point,
-        region="unknown"
+        surface_point
     ):
         self.id = object_id
         self.object_type = object_type
         self.bbox = bbox
         self.surface_point = surface_point
-        self.region = region
 
     def update_bbox(self, new_bbox):
         self.bbox = new_bbox
@@ -34,6 +32,5 @@ class DetectedObject:
         return (
             f"DetectedObject(ID={self.id}, "
             f"type={self.object_type}, "
-            f"region={self.region}, "
             f"surface_point={self.surface_point})"
         )

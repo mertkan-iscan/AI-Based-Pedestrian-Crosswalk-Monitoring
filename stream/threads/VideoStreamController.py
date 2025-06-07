@@ -4,8 +4,8 @@ import queue
 import numpy as np
 from PyQt5 import QtCore
 
-from crosswalk_inspector.CrosswalkInspectThread import CrosswalkInspectThread
-from crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
+from stream.crosswalk_inspector.CrosswalkInspectThread import CrosswalkInspectThread
+from stream.crosswalk_inspector.TrafficLightMonitorThread import TrafficLightMonitorThread
 from stream.threads.MotWriterThread import MotWriterThread
 from stream.threads.FrameProducerThread import FrameProducerThread
 from stream.threads.VideoConsumerThread import VideoConsumerThread
@@ -27,10 +27,11 @@ class VideoStreamController(QtCore.QObject):
         self.video_queue = queue.Queue()
         self.detection_queue = queue.Queue()
 
-        cfg = ConfigManager()
+        cfg = ConfigManager(location=self.location)
         self.detection_fps = cfg.get_detection_fps()
         self.delay_seconds = cfg.get_delay_seconds()
         self.traffic_light_fps = cfg.get_traffic_light_fps()
+        self.enable_mot_writer = cfg.get_detection_config().get("enable_mot_writer", True)
 
         self.mot_writer = None
         self.tl_monitor = None
@@ -43,9 +44,14 @@ class VideoStreamController(QtCore.QObject):
         self._setup()
 
     def _setup(self):
+
         source, source_name, mot_filename = self._setup_video_source(self.location)
-        self.mot_writer = MotWriterThread(mot_filename)
-        self.mot_writer.start()
+
+        # start mot file writer
+        self.mot_writer = None
+        if self.enable_mot_writer:
+            self.mot_writer = MotWriterThread(mot_filename)
+            self.mot_writer.start()
 
         homography, H_inv = self._compute_homography_and_inverse(self.location)
         self.H_inv = H_inv
@@ -90,11 +96,13 @@ class VideoStreamController(QtCore.QObject):
             self.location["polygons_file"],
             self.detection_queue,
             state=self.state,
-            homography_matrix=homography,
             detection_fps=self.detection_fps,
             delay=self.delay_seconds,
-            mot_writer=self.mot_writer
+            mot_writer=self.mot_writer,
+            location=self.location,
+            homography_matrix=homography
         )
+
         self.detection_thread.detections_ready.connect(self._on_detection_ready)
         self.detection_thread.error_signal.connect(self._on_error)
         self.detection_thread.start()

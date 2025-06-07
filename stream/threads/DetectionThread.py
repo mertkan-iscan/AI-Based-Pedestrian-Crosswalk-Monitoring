@@ -5,9 +5,9 @@ import cv2
 import numpy as np
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from utils.objects.DetectedObject import DetectedObject
-from detection.Inference import run_inference
-from detection.Deepsort.DeepsortTracker import DeepSortTracker
+from stream.detection.DetectedObject import DetectedObject
+from stream.detection.YoloDetector import YoloDetector
+from stream.detection.Deepsort.DeepsortTracker import DeepSortTracker
 from utils.RegionManager import RegionManager
 from utils.GlobalState import GlobalState
 from utils.ConfigManager import ConfigManager
@@ -38,23 +38,38 @@ class DetectionThread(QThread):
         polygons_file: str,
         detection_queue: "queue.Queue",
         state: GlobalState,
-        homography_matrix,
         detection_fps,
         delay,
-        mot_writer=None,
+        mot_writer,
+        location,
+        homography_matrix=None,
         parent=None,
     ):
+
         super().__init__(parent)
+
+        yolo_cfg = ConfigManager(location=location).get_yolo_config()
+        self.detector = YoloDetector(yolo_config=yolo_cfg)
+
         self.detection_fps = detection_fps
         self.queue = detection_queue
         self.delay = float(delay)
         self._run = True
 
-        self.mot_writer = mot_writer
-
         self.state = state
+        self.editor = RegionManager(polygons_file)
+        self.editor.load_polygons()
 
-        cfg = ConfigManager().get_deepsort_config()
+        self._timers = set()
+
+        self.mot_writer = mot_writer
+        self.frame_counter = 1
+        self._mot_lines_buffer = []
+
+        self._blackout_mask = None
+
+        self.location = location
+        cfg = ConfigManager(location=self.location).get_deepsort_config()
         self.tracker = DeepSortTracker(
             max_disappeared   = cfg.get("max_disappeared"),
             max_distance      = cfg.get("max_distance"),
@@ -63,12 +78,10 @@ class DetectionThread(QThread):
             motion_weight     = cfg.get("motion_weight"),
             iou_weight        = cfg.get("iou_weight"),
             nn_budget         = cfg.get("nn_budget"),
-            homography_matrix = homography_matrix
+            homography_matrix = homography_matrix,
+            person_reid_path  = "PPLR+CAJ_market1501_86.1.pth",
+            vehicle_reid_path  = "PPLR+CAJ_veri_45.3.pth",
         )
-
-        self.editor = RegionManager(polygons_file)
-        self.editor.load_polygons()
-        self._timers = set()
 
         self.H_inv = None
         if homography_matrix is not None:
@@ -77,8 +90,13 @@ class DetectionThread(QThread):
             except np.linalg.LinAlgError:
                 self.H_inv = None
 
-        self.frame_counter = 1
-        self._mot_lines_buffer = []
+    def _compute_static_mask(self, frame_shape):
+        # Create a single channel mask (uint8), initially all white (keep all)
+        mask = np.ones(frame_shape[:2], dtype=np.uint8) * 255
+        for poly in self.editor.other_regions.get("detection_blackout", []):
+            pts = np.array(poly["points"], dtype=np.int32)
+            cv2.fillPoly(mask, [pts], 0)
+        return mask
 
     def _mask_blackout(self, frame):
         masked = frame.copy()
@@ -136,7 +154,7 @@ class DetectionThread(QThread):
             masked = self._mask_blackout(frame)
 
             t_inf_start = time.time()
-            detections = run_inference(masked)
+            detections = self.detector.run(masked)
             t_inf_end = time.time()
             signals.detection_logged.emit(t_inf_end - t_inf_start)
 

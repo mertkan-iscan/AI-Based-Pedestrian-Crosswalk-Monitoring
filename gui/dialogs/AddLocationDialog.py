@@ -2,9 +2,11 @@ import os
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 from gui.dialogs.CropDialog import CropDialog
-from utils import LocationManager
+
 from stream.SingleFrameExtractor import SingleFrameExtractor
 from gui.dialogs.HomographySetterDialog import HomographySetterDialog
+from utils.LocationManager import LocationManager
+
 
 class AddLocationDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
@@ -159,7 +161,7 @@ class AddLocationDialog(QtWidgets.QDialog):
             loc["homography_matrix"] = hm
 
         try:
-            LocationManager.add_location(loc)
+            LocationManager().add_location(loc)
         except ValueError as e:
             QtWidgets.QMessageBox.warning(self, "Validation", str(e))
             return

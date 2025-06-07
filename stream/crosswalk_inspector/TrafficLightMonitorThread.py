@@ -5,7 +5,7 @@ import threading
 from typing import List, Tuple, Dict
 from PyQt5 import QtCore
 
-from utils.objects.TrafficLight import TrafficLight
+from stream.crosswalk_inspector.TrafficLight import TrafficLight
 
 
 def hsv_color_classifier(crops: Dict[str, np.ndarray]) -> str:
