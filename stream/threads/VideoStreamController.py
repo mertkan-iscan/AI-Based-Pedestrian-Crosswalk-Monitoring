@@ -82,7 +82,8 @@ class VideoStreamController(QtCore.QObject):
             global_state=self.state,
             tl_objects=self.producer.tl_objects,
             check_period=0.2,
-            homography_inv=H_inv
+            homography_inv=H_inv,
+            location_name=self.location['name'],
         )
         self.crosswalk_monitor.error_signal.connect(self._on_error)
         self.crosswalk_monitor.start()

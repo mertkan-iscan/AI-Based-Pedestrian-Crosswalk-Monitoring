@@ -103,7 +103,7 @@
                 "enable_mot_writer": false
             },
             "crosswalk_monitor": {
-                "traffic_light_fps": 20
+                "traffic_light_fps": 1
             }
         }
     },
