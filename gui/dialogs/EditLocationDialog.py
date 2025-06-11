@@ -1,14 +1,11 @@
-import os
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QFileDialog
 
-from stream.SingleFrameExtractor import SingleFrameExtractor
-from gui.dialogs.CropDialog import CropDialog
-from gui.dialogs.HomographySetterDialog import HomographySetterDialog
 from utils.LocationManager import LocationManager
+from gui.dialogs.LocationDialogHelper import LocationDialogHelper
 
 
-class EditLocationDialog(QtWidgets.QDialog):
+class EditLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
+
     def __init__(self, location, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Location")
@@ -55,8 +52,8 @@ class EditLocationDialog(QtWidgets.QDialog):
         video_layout = QtWidgets.QVBoxLayout(self.video_widget)
         video_layout.addWidget(QtWidgets.QLabel("Video File:"))
         self.video_path_edit = QtWidgets.QLineEdit(self._updated.get("video_path", ""))
-        browse_btn = QtWidgets.QPushButton("Browse Video")
-        browse_btn.clicked.connect(self._browse_video_file)
+        browse_btn = QtWidgets.QPushButton("Browse")
+        browse_btn.clicked.connect(lambda: self.browse_video_file(self.video_path_edit))
         row = QtWidgets.QHBoxLayout()
         row.addWidget(self.video_path_edit)
         row.addWidget(browse_btn)
@@ -69,7 +66,7 @@ class EditLocationDialog(QtWidgets.QDialog):
 
         # Bird's-eye image upload and preview
         upload_btn = QtWidgets.QPushButton("Upload Bird’s-Eye Image")
-        upload_btn.clicked.connect(self._browse_bird_image)
+        upload_btn.clicked.connect(lambda: self.browse_bird_image(self.preview_label))
         layout.addWidget(upload_btn)
         self.preview_label = QtWidgets.QLabel()
         self.preview_label.setFixedSize(150, 150)
@@ -82,7 +79,10 @@ class EditLocationDialog(QtWidgets.QDialog):
 
         # Homography setter
         homo_btn = QtWidgets.QPushButton("Set Homography")
-        homo_btn.clicked.connect(self._set_homography)
+        homo_btn.clicked.connect(lambda: self.set_homography(
+            self.video_radio, self.video_path_edit, self.stream_edit,
+            'bird_image_path', self.homo_status, location=self._updated
+        ))
         layout.addWidget(homo_btn)
         self.homo_status = QtWidgets.QLabel(
             "Homography set." if self.homography_matrix else "Homography not set."
@@ -101,49 +101,6 @@ class EditLocationDialog(QtWidgets.QDialog):
         is_stream = self.stream_radio.isChecked()
         self.stream_widget.setVisible(is_stream)
         self.video_widget.setVisible(not is_stream)
-
-    def _browse_video_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Video File", "", "Video Files (*.mp4 *.avi *.mkv *.mov)"
-        )
-        if path:
-            self.video_path_edit.setText(path)
-
-    def _browse_bird_image(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Bird’s-Eye Image", "", "Images (*.png *.jpg *.jpeg *.bmp)"
-        )
-        if not path:
-            return
-        dlg = CropDialog(path, self)
-        if dlg.exec_() != QtWidgets.QDialog.Accepted:
-            return
-        cropped = dlg.getCropped()
-        name, ext = os.path.splitext(os.path.basename(path))
-        save_dir = os.path.join(os.getcwd(), "resources", "satellite_images")
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, f"{name}_cropped{ext}")
-        cropped.save(save_path)
-        self.bird_image_path = save_path
-        self.preview_label.setPixmap(QtGui.QPixmap(save_path))
-
-    def _set_homography(self):
-        if not self.bird_image_path:
-            QtWidgets.QMessageBox.critical(self, "Error", "Upload a bird’s-eye image first.")
-            return
-        if self.video_radio.isChecked():
-            frame = SingleFrameExtractor.get_single_frame_from_file(self._updated["video_path"])
-        else:
-            frame = SingleFrameExtractor.get_single_frame_from_stream(self._updated["stream_url"])
-        if frame is None:
-            QtWidgets.QMessageBox.critical(self, "Error", "Cannot grab camera frame.")
-            return
-        dlg = HomographySetterDialog(frame, self.bird_image_path, self)
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.homography_matrix = dlg.get_homography()
-            self.homo_status.setText("Homography set.")
-        else:
-            self.homo_status.setText("Homography not set.")
 
     def _on_ok(self):
         # Validate name

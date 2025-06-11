@@ -41,6 +41,7 @@ class CrosswalkInspectThread(QtCore.QThread):
         self.event_handlers = [
             self._detect_sequence_events,
             self._detect_vehicle_events,
+            self._detect_vehicle_violation_events,
             self._detect_pedestrian_events
         ]
 
@@ -168,14 +169,18 @@ class CrosswalkInspectThread(QtCore.QThread):
         self.wait()
 
     def _detect_pedestrian_sequence_events(self, pack_id, state, v_status, p_status, timestr):
+
         seq = self.seq_state.setdefault(pack_id, {}).setdefault(state.id, {'start': None, 'step': 0})
         events = []
+
         d0 = state.durations.pop('ped_wait_0', None)
         d1 = state.durations.pop('ped_wait_1', None)
+
         if seq['step'] == 2:
             if (seq['start'] == 0 and d1 is not None) or (seq['start'] == 1 and d0 is not None):
                 events.append(f"[{timestr}] Pedestrian {state.id} completed crossing Pack:{pack_id}")
                 seq['step'] = 0
+
         if seq['step'] == 0 and d0 is not None:
             seq.update({'start': 0, 'step': 1})
         elif seq['step'] == 0 and d1 is not None:
@@ -204,12 +209,24 @@ class CrosswalkInspectThread(QtCore.QThread):
                               f"{status} light in Pack:{pack_id} ({d:.2f}s)")
         return events
 
+    def _detect_vehicle_violation_events(self, pack_id, state, v_status, p_status, timestr):
+        events = []
+        if state.class_name != 'person':
+            d = state.durations.pop('crosswalk', None)
+            if d is not None and v_status in ('red', 'yellow'):
+                events.append(
+                    f"[{timestr}] VIOLATION: Vehicle {state.id} crossed on {v_status} light in Pack:{pack_id} ({d:.2f}s)"
+                )
+        return events
+
     def _detect_sequence_events(self, pack_id, state, v_status, p_status, timestr):
         seq = self.seq_state.setdefault(pack_id, {}).setdefault(state.id, {'start': None, 'step': 0})
         events = []
         d0 = state.durations.pop('ped_wait_0', None)
         d1 = state.durations.pop('ped_wait_1', None)
+
         if seq['step'] == 2 and ((seq['start'] == 0 and d1 is not None) or (seq['start'] == 1 and d0 is not None)):
+
             events.append(f"[{timestr}] Pedestrian {state.id} completed crossing Pack:{pack_id}")
             monitor = self.monitors[pack_id]
             for v_state in monitor.entities.values():
@@ -221,10 +238,13 @@ class CrosswalkInspectThread(QtCore.QThread):
                         events.append(f"[{timestr}] Vehicle {v_state.id} yielded to pedestrian "
                                       f"{state.id} in Pack:{pack_id}")
             seq['step'] = 0
+
         if seq['step'] == 0 and d0 is not None:
             seq.update({'start': 0, 'step': 1})
+
         elif seq['step'] == 0 and d1 is not None:
             seq.update({'start': 1, 'step': 1})
+
         return events
 
     def _handle_pedestrian_sidewalk_transition(self, tid, pt, timestr):

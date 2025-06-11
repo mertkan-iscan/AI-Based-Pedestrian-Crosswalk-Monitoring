@@ -346,7 +346,7 @@
                 "device": "cuda",
                 "version": "yolov5m.pt",
                 "imgsz": 640,
-                "conf": 0.5,
+                "conf": 0.2,
                 "classes": [
                     0,
                     1,
@@ -355,11 +355,7 @@
                     5,
                     7
                 ],
-                "conf_per_class": {
-                    "0": 0.5,
-                    "1": 0.7,
-                    "2": 0.6
-                }
+                "conf_per_class": {}
             },
             "deepsort": {
                 "max_disappeared": 40,
@@ -372,7 +368,77 @@
             },
             "player": {},
             "detection_thread": {
-                "detection_fps": 10,
+                "detection_fps": 30,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": true
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
+    },
+    {
+        "name": "test_pet",
+        "video_path": "C:/Users/merti/Desktop/PETS09-S2L1-raw.mp4",
+        "polygons_file": "resources\\location_regions\\region_polygons_test_pet.json",
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.4,
+                "classes": [
+                    0
+                ],
+                "conf_per_class": {}
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 15.0,
+                "device": "cuda",
+                "appearance_weight": 0.7,
+                "motion_weight": 0.2,
+                "iou_weight": 0.1,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 7,
+                "delay_seconds": 5.0,
+                "enable_mot_writer": true
+            },
+            "crosswalk_monitor": {
+                "traffic_light_fps": 20
+            }
+        }
+    },
+    {
+        "name": "test_MOT20-03",
+        "video_path": "C:/Users/merti/Desktop/MOT20-03-raw.mp4",
+        "polygons_file": "resources\\location_regions\\region_polygons_test_mot2003.json",
+        "config": {
+            "yolo": {
+                "device": "cuda",
+                "version": "yolov5m.pt",
+                "imgsz": 640,
+                "conf": 0.2,
+                "classes": [
+                    0
+                ],
+                "conf_per_class": {}
+            },
+            "deepsort": {
+                "max_disappeared": 40,
+                "max_distance": 10.0,
+                "device": "cuda",
+                "appearance_weight": 0.4,
+                "motion_weight": 0.4,
+                "iou_weight": 0.2,
+                "nn_budget": 100
+            },
+            "player": {},
+            "detection_thread": {
+                "detection_fps": 25,
                 "delay_seconds": 5.0,
                 "enable_mot_writer": true
             },

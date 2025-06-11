@@ -86,10 +86,10 @@ class FrameProducerThread(QtCore.QThread):
 
     def run(self):
         try:
-            if self.use_av:
-                print(">>> Using av")
-                self._run_av()
-            else:
+            #if self.use_av:
+            #    print(">>> Using av")
+            #    self._run_av()
+            #else:
                 print(">>> Using opencv")
                 self._run_opencv()
 

@@ -1,11 +1,15 @@
 import threading
 import queue
+import os
 
 class MotWriterThread(threading.Thread):
     def __init__(self, filename):
         super().__init__()
         self.queue = queue.Queue()
-        self.filename = filename
+
+        os.makedirs('test_output', exist_ok=True)
+        base_filename = os.path.basename(filename)
+        self.filename = os.path.join('test_output', base_filename)
         self._run = True
         self._buffer = []
 
@@ -35,6 +39,5 @@ class MotWriterThread(threading.Thread):
         self._run = False
         self.queue.put(None)
         self.join()
-        # --- Dosyaya sadece burada yazılıyor! ---
         with open(self.filename, "w") as f:
             f.writelines(self._buffer)
