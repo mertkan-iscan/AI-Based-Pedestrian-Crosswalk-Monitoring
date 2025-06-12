@@ -78,12 +78,14 @@ class VideoStreamController(QtCore.QObject):
         self.producer.start()
 
         self.crosswalk_monitor = CrosswalkInspectThread(
-            editor=self.editor,
-            global_state=self.state,
-            tl_objects=self.producer.tl_objects,
-            check_period=0.2,
-            homography_inv=H_inv,
-            location_name=self.location['name'],
+            editor         = self.editor,
+            global_state   = self.state,
+            tl_objects     = self.producer.tl_objects,
+            check_period   = 0.2,
+            homography_inv = self.H_inv,
+            location_name  = self.location["name"],
+            is_live        = use_av,
+            delay_seconds  = self.delay_seconds
         )
         self.crosswalk_monitor.error_signal.connect(self._on_error)
         self.crosswalk_monitor.start()
