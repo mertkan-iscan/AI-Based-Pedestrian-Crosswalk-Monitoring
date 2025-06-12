@@ -127,25 +127,30 @@ class DeepSortTracker:
             frame=None,
             features=None,
             timestamp: float | None = None,
-            detection_fps: float = 20.0,
+            detection_fps=None,
     ):
-        removed_ids = []
+
         if len(rects) == 0:
             for track in self.tracks:
                 track.time_since_update += 1
-            removed_ids = [t.track_id for t in self.tracks if t.time_since_update > self.max_disappeared]
-            self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
+            removed_ids = [
+                t.track_id for t in self.tracks
+                if t.time_since_update > self.max_disappeared
+            ]
+            self.tracks = [
+                t for t in self.tracks
+                if t.time_since_update <= self.max_disappeared
+            ]
             return {t.track_id: (t.centroid, t.bbox) for t in self.tracks}, removed_ids
 
-        # Build detection list: each entry is (calibrated_centroid, bbox_with_conf, feature)
+        # Build detection list: each entry is (calibrated_point, bbox_with_conf, feature)
         detections = []
         if features is None and frame is not None:
-
             bboxes_person = []
             indices_person = []
             bboxes_vehicle = []
             indices_vehicle = []
-            cents = []
+            points = []
 
             for idx, rect in enumerate(rects):
                 if len(rect) == 6:
@@ -154,13 +159,16 @@ class DeepSortTracker:
                     x1, y1, x2, y2, cls = rect
                     conf = None
 
-                spx = int((x1 + x2) / 2.0)
-                spy = int(y2)
                 if self.homography_matrix is not None:
+                    spx = int((x1 + x2) / 2.0)
+                    spy = int(y2)
                     calibrated = self.calibrate_point((spx, spy), self.homography_matrix)
                 else:
-                    calibrated = (spx, spy)
-                cents.append(calibrated)
+                    cX = int((x1 + x2) / 2.0)
+                    cY = int((y1 + y2) / 2.0)
+                    calibrated = (cX, cY)
+                points.append(calibrated)
+
                 if cls == PERSON_CLASS_IDX:
                     bboxes_person.append((x1, y1, x2, y2))
                     indices_person.append(idx)
@@ -188,7 +196,7 @@ class DeepSortTracker:
                     x1, y1, x2, y2, cls = rect
                     conf = None
                 detections.append((
-                    cents[i],
+                    points[i],
                     (x1, y1, x2, y2, cls, conf),
                     batch_features[i]
                 ))
@@ -199,11 +207,16 @@ class DeepSortTracker:
                 else:
                     x1, y1, x2, y2, cls = rect
                     conf = None
-                cX, cY = int((x1 + x2) / 2.0), int((y1 + y2) / 2.0)
+
                 if self.homography_matrix is not None:
-                    calibrated = self.calibrate_point((cX, cY), self.homography_matrix)
+                    spx = int((x1 + x2) / 2.0)
+                    spy = int(y2)
+                    calibrated = self.calibrate_point((spx, spy), self.homography_matrix)
                 else:
+                    cX = int((x1 + x2) / 2.0)
+                    cY = int((y1 + y2) / 2.0)
                     calibrated = (cX, cY)
+
                 if features is not None:
                     det_feat = features[i]
                 else:
@@ -214,13 +227,16 @@ class DeepSortTracker:
                         det_feat = self.vehicle_extractor.extract_features([crop])[0]
                     else:
                         det_feat = self.person_extractor.extract_features([crop])[0]
+
                 detections.append((
                     calibrated,
                     (x1, y1, x2, y2, cls, conf),
                     det_feat
                 ))
 
-        cost_matrix, motion_matrix, appearance_matrix = self._compute_cost(detections, timestamp, detection_fps=detection_fps)
+        cost_matrix, motion_matrix, appearance_matrix = self._compute_cost(
+            detections, timestamp, detection_fps=detection_fps
+        )
         if cost_matrix.size > 0:
             rows, cols = linear_sum_assignment(cost_matrix)
         else:
@@ -234,8 +250,8 @@ class DeepSortTracker:
             track.motion_distance = motion_matrix[row, col]
             track.appearance_distance = appearance_matrix[row, col]
             track.update(
-                detections[col][1],  # bbox includes conf now
-                detections[col][0],  # calibrated centroid
+                detections[col][1],
+                detections[col][0],
                 feature=detections[col][2],
                 timestamp=timestamp,
             )
@@ -246,17 +262,22 @@ class DeepSortTracker:
             if i not in assigned_tracks:
                 track.time_since_update += 1
 
-        removed_ids = [t.track_id for t in self.tracks if t.time_since_update > self.max_disappeared]
-        self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_disappeared]
+        removed_ids = [
+            t.track_id for t in self.tracks
+            if t.time_since_update > self.max_disappeared
+        ]
+        self.tracks = [
+            t for t in self.tracks
+            if t.time_since_update <= self.max_disappeared
+        ]
 
-        for j in range(len(detections)):
+        for j, (cent, bbox, feat) in enumerate(detections):
             if j not in assigned_dets:
-                bbox_j, feat_j, cent_j = detections[j][1], detections[j][2], detections[j][0]
                 new_track = Track(
                     self.next_track_id,
-                    bbox_j,
-                    cent_j,
-                    feature=feat_j,
+                    bbox,
+                    cent,
+                    feature=feat,
                     nn_budget=self.nn_budget,
                 )
                 new_track.last_timestamp = timestamp
