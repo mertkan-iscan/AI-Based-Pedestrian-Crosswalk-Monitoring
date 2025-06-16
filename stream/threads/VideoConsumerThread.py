@@ -1,4 +1,3 @@
-# stream/VideoConsumerThread.py
 import queue
 import time
 import cv2
@@ -49,7 +48,6 @@ class VideoConsumerThread(QtCore.QThread):
 
             wait_until(target)
 
-            # measure QImage conversion + emit
             try:
                 qimg = self._to_qimage(frame)
                 self.frame_ready.emit(qimg)

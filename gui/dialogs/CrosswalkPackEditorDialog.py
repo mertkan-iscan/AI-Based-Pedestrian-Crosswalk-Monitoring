@@ -58,26 +58,34 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
 
     def initUI(self):
         self.setWindowTitle("Add Crosswalk Pack")
+
         main_layout = QtWidgets.QHBoxLayout(self)
         left = QtWidgets.QVBoxLayout()
+
         self.image_label = ClickableLabel()
         self.image_label.setAlignment(QtCore.Qt.AlignCenter)
         self.image_label.setMinimumSize(400, 300)
+
         left.addWidget(self.image_label)
         main_layout.addLayout(left, 4)
+
 
         right = QtWidgets.QVBoxLayout()
         self.stage_label = QtWidgets.QLabel()
         right.addWidget(self.stage_label)
+
         self.finalize_btn = QtWidgets.QPushButton("Finalize")
         self.finalize_btn.clicked.connect(self.finalize)
         right.addWidget(self.finalize_btn)
+
         self.clear_btn = QtWidgets.QPushButton("Clear")
         self.clear_btn.clicked.connect(self.clear_temp)
         right.addWidget(self.clear_btn)
+
         self.next_btn = QtWidgets.QPushButton("Next")
         self.next_btn.clicked.connect(self.next_phase)
         right.addWidget(self.next_btn)
+
         self.add_light_btn = QtWidgets.QPushButton("Add Traffic Light")
         self.add_light_btn.clicked.connect(self.start_light)
         self.add_light_btn.setVisible(False)
@@ -86,6 +94,7 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         save_btn = QtWidgets.QPushButton("Save & Close")
         save_btn.clicked.connect(self.save_and_close)
         right.addWidget(save_btn)
+
         cancel_btn = QtWidgets.QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
         right.addWidget(cancel_btn)
@@ -142,23 +151,23 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         }
         phases = ["crosswalk", "car_wait", "pedes_wait"]
 
-        # 1) Draw completed polygons
+        #draw completed polygons
         for key in phases:
             for poly in self.polygons[key]:
                 pts = np.array(poly, np.int32).reshape(-1, 1, 2)
                 cv2.polylines(img, [pts], True, cols[key], 2)
 
-        # 2) Draw finished traffic-light groups
+        #draw finished tl groups
         for lt in self.polygons["traffic_lights"]:
             for c in lt["lights"].values():
                 cv2.circle(img, tuple(c["center"]), c["radius"], (0, 0, 255), 2)
 
-        # 3) Draw any circles in the current_light
+        #draw any circles in the current_light
         if self.mode == "light" and getattr(self, "current_light", None):
             for c in self.current_light["lights"].values():
                 cv2.circle(img, tuple(c["center"]), c["radius"], (0, 0, 255), 2)
 
-        # 4) In-progress polygon
+        #inprogress polygon
         if self.mode == "polygon" and self.stage < len(phases) and self.current_points:
             key = phases[self.stage]
             pts = np.array(self.current_points, np.int32).reshape(-1, 1, 2)
@@ -166,13 +175,13 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
             for p in self.current_points:
                 cv2.circle(img, tuple(p), 5, cols[key], -1)
 
-        # 5) In-progress circle
+        #inprogress circle
         if self.mode == "light" and len(self.circle_temp) == 2:
             c1, c2 = self.circle_temp
             r = int(math.hypot(c2[0] - c1[0], c2[1] - c1[1]))
             cv2.circle(img, c1, r, (0, 0, 255), 2)
 
-        # 6) Blit to label
+        #blit to label
         qimg = QtGui.QImage(
             img.data, img.shape[1], img.shape[0], img.strides[0],
             QtGui.QImage.Format_BGR888
@@ -184,7 +193,7 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
         )
         self.image_label.setPixmap(pix)
 
-        # 7) Update status text
+        #update status text
         if self.mode == "polygon":
             if self.stage < len(phases):
                 key = phases[self.stage]
@@ -194,7 +203,7 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
                 # we've somehow gone past, show ready for lights
                 self.stage_label.setText("Ready for Traffic Lights")
         else:
-            # light mode
+            #light mode
             if getattr(self, "current_light", None):
                 colors = (
                     ["red", "yellow", "green"]
@@ -212,7 +221,7 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
                 self.stage_label.setText("Click ‘Add Traffic Light’ to begin")
 
     def next_phase(self):
-        # Only applies in polygon‐mode
+
         if self.mode != "polygon":
             return
 
@@ -226,23 +235,26 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
 
         # Enforce the per‐stage rules (min/max) before advancing...
         cnt = len(self.polygons[key])
-        # crosswalk: must have exactly 1
+
+        #crosswalk must have 1
         if key == "crosswalk" and cnt != 1:
             QtWidgets.QMessageBox.warning(self, "Warning", "Draw exactly one crosswalk.")
             return
-        # car_wait: can be 0–2
+
+        #car_wait can be 0–2
         if key == "car_wait" and cnt > self._max_counts[key]:
             QtWidgets.QMessageBox.warning(self, "Warning", "At most 2 car_wait regions allowed.")
             return
-        # pedes_wait: must have 1–2
+
+        #pedes_wait have 1–2
         if key == "pedes_wait" and (cnt < 1 or cnt > self._max_counts[key]):
             QtWidgets.QMessageBox.warning(self, "Warning", "Draw 1–2 pedestrian_wait regions.")
             return
 
-        # Advance stage
+        #advance stage
         self.stage += 1
         if self.stage >= len(key_list):
-            # Enter traffic‐light mode
+            #enter tl mode
             self.mode = "light"
             self.add_light_btn.setVisible(True)
         self.update_display()
@@ -266,30 +278,30 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
             phases = ["crosswalk", "car_wait", "pedes_wait"]
             key = phases[self.stage]
 
-            # need 3+ points
+            #need 3+ points
             if len(self.current_points) < 3:
                 QtWidgets.QMessageBox.warning(self, "Warning",
                                               "Need at least 3 points to finalize polygon.")
                 return
 
-            # don't exceed max
+            #dont exceed max
             if len(self.polygons[key]) >= self._max_counts[key]:
                 QtWidgets.QMessageBox.warning(self, "Warning",
                                               f"At most {self._max_counts[key]} {key} region(s) allowed.")
                 return
 
-            # commit
+            #commit
             self.polygons[key].append(self.current_points.copy())
             self.current_points.clear()
 
-            # if we've hit the max for this stage, auto-advance
+            #if weve hit the max for this stage auto-advance
             if len(self.polygons[key]) >= self._max_counts[key]:
                 self.next_phase()
             else:
                 self.update_display()
             return
 
-        # LIGHT MODE
+        # tf mode
         if self.mode == "light":
             if len(self.circle_temp) != 2:
                 QtWidgets.QMessageBox.warning(self, "Warning",
@@ -302,15 +314,17 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
             idx = len(self.current_light["lights"])
             sc = colors[idx]
 
-            # add circle
+            #add circle
             self.current_light["lights"][sc] = {"center": c1, "radius": r}
             self.circle_temp.clear()
 
-            # if that was the last circle, finalize the light
+            #if that was the last circle finalize the light
             if len(self.current_light["lights"]) >= len(colors):
+
                 self.polygons["traffic_lights"].append(self.current_light)
                 self.current_light = None
-                # remain in light mode so you can add N lights
+
+                #remain in light mode so you can add N lights
                 self.add_light_btn.setVisible(True)
 
             self.update_display()
@@ -325,19 +339,24 @@ class CrosswalkPackEditorDialog(QtWidgets.QDialog):
 
     def save_and_close(self):
         pack = self.manager.new_pack()
-        # set crosswalk
+
+        #set crosswalk
         cw_list = self.polygons.get("crosswalk", [])
         if cw_list:
             pack.set_crosswalk(cw_list[0])
-        # set car_wait regions
+
+        #set car_wait regions
         for pts in self.polygons.get("car_wait", []):
             pack.add_car_wait(pts)
-        # set pedes_wait regions
+
+        #set pedes_wait regions
         for pts in self.polygons.get("pedes_wait", []):
             pack.add_pedes_wait(pts)
-        # set traffic_light groups, using pack.add_traffic_light_group()
+
+        #set traffic_light groups
         for lt in self.polygons.get("traffic_lights", []):
             pack.add_traffic_light_group(lt["type"], lt["lights"])
+
         # persist and close
         self.manager.save_polygons()
         self.accept()

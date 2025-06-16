@@ -1,17 +1,21 @@
 from PyQt5 import QtWidgets
 from utils.ConfigManager import ConfigManager
 
+
 def _list_to_str(lst):
     return ",".join(str(x) for x in lst) if isinstance(lst, list) else str(lst)
 
 def _str_to_list(s):
-    # Accept comma or space separation
+
+    #accept comma or space separation
     if isinstance(s, list):
         return s
     s = s.strip()
+
     if not s:
         return []
-    # Try JSON list, fallback to comma/space
+
+    #try json list fallback to comma/space
     try:
         import json
         arr = json.loads(s)
@@ -21,7 +25,9 @@ def _str_to_list(s):
         pass
     return [int(x) if x.isdigit() else x for x in s.replace(",", " ").split() if x]
 
+
 class EditConfigDialog(QtWidgets.QDialog):
+
     def __init__(self, location, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Edit Config: {location['name']}")
@@ -37,7 +43,7 @@ class EditConfigDialog(QtWidgets.QDialog):
         frame = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout(frame)
 
-        # Yolo
+        #yolo
         yolo = self.config.get("yolo", {})
         self.fields['yolo_device'] = QtWidgets.QLineEdit(str(yolo.get("device", "")))
         layout.addRow("YOLO Device", self.fields['yolo_device'])
@@ -56,14 +62,15 @@ class EditConfigDialog(QtWidgets.QDialog):
         self.fields['yolo_classes'] = QtWidgets.QLineEdit(_list_to_str(yolo.get("classes", [])))
         layout.addRow("YOLO Classes (comma separated)", self.fields['yolo_classes'])
 
-        # Conf per class (flat: "0:0.5,1:0.7")
+        #conf per class
         self.conf_per_class_table = QtWidgets.QTableWidget(self)
         self.conf_per_class_table.setColumnCount(2)
         self.conf_per_class_table.setHorizontalHeaderLabels(["Class ID", "Conf"])
         self.conf_per_class_table.setEditTriggers(QtWidgets.QTableWidget.AllEditTriggers)
         self.conf_per_class_table.horizontalHeader().setStretchLastSection(True)
         self.conf_per_class_table.setMinimumHeight(120)
-        # Fill with current values
+
+        #fill with current values
         conf_per_class = yolo.get("conf_per_class", {})
         self._load_conf_per_class_table(conf_per_class)
         layout.addRow("YOLO Conf Per Class", self.conf_per_class_table)
@@ -77,7 +84,7 @@ class EditConfigDialog(QtWidgets.QDialog):
         btn_layout.addWidget(remove_btn)
         layout.addRow("", btn_layout)
 
-        # Deepsort
+        #deepsort
         deepsort = self.config.get("deepsort", {})
         self.fields['deepsort_max_disappeared'] = QtWidgets.QSpinBox()
         self.fields['deepsort_max_disappeared'].setMaximum(9999)
@@ -109,7 +116,7 @@ class EditConfigDialog(QtWidgets.QDialog):
         self.fields['deepsort_nn_budget'].setValue(int(deepsort.get("nn_budget", 100)))
         layout.addRow("DeepSort NN Budget", self.fields['deepsort_nn_budget'])
 
-        # Detection Thread
+        #detection Thread
         det = self.config.get("detection_thread", {})
         self.fields['det_fps'] = QtWidgets.QSpinBox()
         self.fields['det_fps'].setMaximum(500)
@@ -126,22 +133,20 @@ class EditConfigDialog(QtWidgets.QDialog):
         self.fields['enable_mot_writer'].setChecked(bool(det.get("enable_mot_writer", True)))
         layout.addRow("Enable MOT Writer", self.fields['enable_mot_writer'])
 
-        # Crosswalk Monitor
+        #crosswalk monitor
         cwm = self.config.get("crosswalk_monitor", {})
         self.fields['cwm_tl_fps'] = QtWidgets.QSpinBox()
         self.fields['cwm_tl_fps'].setMaximum(500)
         self.fields['cwm_tl_fps'].setValue(int(cwm.get("traffic_light_fps", 20)))
         layout.addRow("Traffic Light FPS", self.fields['cwm_tl_fps'])
 
-        # Optionally: Player/database fields can be added similarly if needed
-
-        # Place the form into the scroll area
+        #place the form into the scroll area
         scroll.setWidget(frame)
 
         dlg_layout = QtWidgets.QVBoxLayout(self)
         dlg_layout.addWidget(scroll)
 
-        # Buttons
+        #buttons
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
         )
@@ -197,6 +202,7 @@ class EditConfigDialog(QtWidgets.QDialog):
                 "classes": _str_to_list(self.fields['yolo_classes'].text()),
                 "conf_per_class": self._get_conf_per_class(),
             }
+
             deepsort = {
                 "max_disappeared": self.fields['deepsort_max_disappeared'].value(),
                 "max_distance": self.fields['deepsort_max_distance'].value(),
@@ -206,28 +212,30 @@ class EditConfigDialog(QtWidgets.QDialog):
                 "iou_weight": self.fields['deepsort_iou_weight'].value(),
                 "nn_budget": self.fields['deepsort_nn_budget'].value(),
             }
+
             det = {
                 "detection_fps": self.fields['det_fps'].value(),
                 "delay_seconds": self.fields['det_delay'].value(),
                 "enable_mot_writer": self.fields['enable_mot_writer'].isChecked(),
             }
+
             cwm = {
                 "traffic_light_fps": self.fields['cwm_tl_fps'].value(),
             }
 
-            # Write back to config
+            #write back to config
             self.location["config"] = {
                 "yolo": yolo,
                 "deepsort": deepsort,
-                "player": {},  # Add player/database if you want to expose them
+                "player": {},
                 "detection_thread": det,
                 "crosswalk_monitor": cwm,
             }
 
-            # Save to disk via LocationManager
+            #save to disk with LocationManager
             from utils.LocationManager import LocationManager
             lm = LocationManager()
-            lm.update_location(self.location, self.location.copy())  # Save in-place
+            lm.update_location(self.location, self.location.copy())
 
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Invalid Input", f"Error saving config: {e}")

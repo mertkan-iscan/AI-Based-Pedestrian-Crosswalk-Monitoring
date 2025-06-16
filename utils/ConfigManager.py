@@ -10,8 +10,8 @@ class ConfigManager:
         self.location = location
         self.global_config = self._load_global_config()
         self.locations = self._load_locations()
-        # If location is provided, use its dict directly (must be from loaded locations)
         self._location_entry = None
+
         if location is not None:
             self._location_entry = self._find_location_entry(location)
 
@@ -76,7 +76,6 @@ class ConfigManager:
             return json.load(f)
 
     def _find_location_entry(self, location):
-        # Match by name (case-insensitive)
         name = location.get("name", "").strip().lower()
         for loc in self.locations:
             if loc.get("name", "").strip().lower() == name:
@@ -84,12 +83,10 @@ class ConfigManager:
         return None
 
     def _get_config_section(self, section):
-        # Try per-location config first
         if self._location_entry:
             config = self._location_entry.get("config", {})
             if section in config:
                 return config[section]
-        # Fallback to global config
         return self.global_config.get(section, {})
 
     def get_yolo_config(self):
@@ -121,17 +118,19 @@ class ConfigManager:
 
     def update_config(self, section, parameter, value):
         if self._location_entry is not None:
-            # Per-location update
             if "config" not in self._location_entry:
                 self._location_entry["config"] = {}
+
             if section not in self._location_entry["config"]:
                 self._location_entry["config"][section] = {}
+
             self._location_entry["config"][section][parameter] = value
             self._save_locations()
+
         else:
-            # Update global config
             if section not in self.global_config:
                 self.global_config[section] = {}
+
             self.global_config[section][parameter] = value
             self._save_global_config()
 

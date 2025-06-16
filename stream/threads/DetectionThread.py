@@ -174,11 +174,6 @@ class DetectionThread(QThread):
             objects_to_emit = []
             for tid, (surface_point, bbox) in tracks_map.items():
 
-                #if self._bbox_hits_deletion_line(bbox):
-                #    print(f"Deletion line hit – track {tid} bbox {bbox}")
-                #    ids_to_remove.append(tid)
-                #    continue
-
                 x1, y1, x2, y2, cls_idx, conf = bbox[:6]
                 obj_type = DetectedObject.CLASS_NAMES.get(cls_idx, "unknown")
 

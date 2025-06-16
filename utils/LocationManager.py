@@ -42,7 +42,7 @@ class LocationManager:
                 new_path = os.path.join(self.POLYGONS_DIR, new_fname)
                 if not os.path.exists(new_path):
                     with open(new_path, "w") as pf:
-                        pf.write("")  # empty JSON file
+                        pf.write("")
                 loc["polygons_file"] = new_path
                 updated = True
 

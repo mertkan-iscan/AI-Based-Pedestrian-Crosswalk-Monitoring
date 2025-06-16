@@ -86,12 +86,8 @@ class FrameProducerThread(QtCore.QThread):
 
     def run(self):
         try:
-            #if self.use_av:
-            #    print(">>> Using av")
-            #    self._run_av()
-            #else:
-                print(">>> Using opencv")
-                self._run_opencv()
+            print(">>> Using opencv")
+            self._run_opencv()
 
         except Exception as e:
             self.error_signal.emit(str(e))

@@ -1,4 +1,3 @@
-# utils/benchmark/Benchmark.py
 import time
 from threading import Lock
 
@@ -28,7 +27,6 @@ class Benchmark:
             self.consumer_latencies  = []
             self.per_second          = {}
 
-    # existing...
     def log_frame(self):
         now = time.time()
         sec = int(now - self.start_ts)
@@ -51,7 +49,6 @@ class Benchmark:
         with self._lock:
             self.per_second.setdefault(sec, {'frames': 0, 'delays': []})['delays'].append(dt)
 
-    # NEW logging methods:
     def log_queue_wait(self, dt: float):
         with self._lock:
             self.queue_waits.append(dt)
@@ -72,7 +69,6 @@ class Benchmark:
         with self._lock:
             self.consumer_latencies.append(dt)
 
-    # (optionally add average getters if you need them later)
     def get_per_second(self):
         """Return data for each second since start (sec_idx, {'frames':…, 'delays':…})."""
         with self._lock:

@@ -47,7 +47,6 @@ class VideoStreamController(QtCore.QObject):
 
         source, source_name, mot_filename = self._setup_video_source(self.location)
 
-        # start mot file writer
         self.mot_writer = None
         if self.enable_mot_writer:
             self.mot_writer = MotWriterThread(mot_filename)

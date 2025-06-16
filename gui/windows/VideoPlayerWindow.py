@@ -80,9 +80,11 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.video_label)
 
         self.overlay = DetectionLayerWidget(video_container)
+
         if self.location.get("homography_matrix") is not None:
             H_inv = np.linalg.inv(np.array(self.location["homography_matrix"]))
             self.overlay.set_inverse_homography(H_inv)
+
         self.stack.addWidget(self.overlay)
         layout.addWidget(video_container, 1)
 
@@ -121,12 +123,14 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         side_layout.addWidget(QtWidgets.QLabel("Bird's Eye View", alignment=QtCore.Qt.AlignCenter))
         self.birds_eye_view = QtWidgets.QLabel(alignment=QtCore.Qt.AlignCenter)
         self.birds_eye_view.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
         if self.birds_eye_pixmap:
             pix = self.birds_eye_pixmap.scaledToWidth(280, QtCore.Qt.SmoothTransformation)
             self.birds_eye_view.setPixmap(pix)
             self.birds_eye_view.setFixedHeight(pix.height())
         else:
             self.birds_eye_view.setText("No Bird's-Eye Image")
+
         side_layout.addWidget(self.birds_eye_view)
 
         layout.addWidget(side, 0)
@@ -217,6 +221,7 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
             status = self.backend.crosswalk_monitor.get_effective_traffic_light_status(
                 pack_id, self.backend.producer.tl_objects, light_type
             )
+
             tl_overlays.append({
                 "center": chosen_center,
                 "status": status,
@@ -226,21 +231,25 @@ class VideoPlayerWindow(QtWidgets.QMainWindow):
         self.overlay.set_traffic_light_overlays(tl_overlays)
 
     def _update_birds_eye(self, objects):
+
         if not self.birds_eye_pixmap:
             return
 
         orig = self.birds_eye_pixmap
         label_width = self.birds_eye_view.width()
+
         scaled_bg = orig.scaled(
             label_width,
             orig.height(),
             QtCore.Qt.KeepAspectRatio,
             QtCore.Qt.SmoothTransformation
         )
+
         scale_x = scaled_bg.width() / orig.width()
         scale_y = scaled_bg.height() / orig.height()
 
         painter = QtGui.QPainter(scaled_bg)
+
         H = (
             np.array(self.location["homography_matrix"])
             if self.location.get("homography_matrix") is not None

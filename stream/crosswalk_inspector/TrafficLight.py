@@ -32,8 +32,7 @@ class TrafficLight:
             self.crops[color] = cv2.bitwise_and(frame, frame, mask=mask)
         return self.crops
 
-    def update_status(self, analyze_fn) -> Optional[str]:
-        result = analyze_fn(self.crops)
+    def update_status(self, result) -> Optional[str]:
         self.status = result
         self.last_update = datetime.now()
         return self.status

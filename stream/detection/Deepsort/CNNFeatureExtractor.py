@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import cv2
 import torchvision.transforms as T
-from numpy import ndarray, dtype, floating
-from numpy._typing import _32Bit
 from torchvision.models import resnet50, ResNet50_Weights
 
 class ReIDModel(nn.Module):
@@ -68,15 +64,6 @@ class CNNFeatureExtractor:
             crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
             tensor_list.append(self.transform(crop))
         return torch.stack(tensor_list, dim=0)
-
-    def extract_features(self, crops: list[np.ndarray]) -> list[Any] | ndarray[Any, dtype[Any]]:
-        if len(crops) == 0:
-            return []
-        with torch.no_grad():
-            batch = self._preprocess(crops).to(self.device)
-            feats = self.model(batch).cpu()
-            feats = F.normalize(feats, p=2, dim=1)
-            return feats.numpy().astype(np.float32)
 
     def extract_features_batch(self, frame: np.ndarray,
                                bboxes: list[tuple[int, int, int, int]]) -> np.ndarray:

@@ -1,5 +1,3 @@
-# stream/crosswalk_inspector/CrosswalkInspectThread.py
-
 import os
 import csv
 import queue

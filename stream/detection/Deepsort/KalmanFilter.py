@@ -1,4 +1,3 @@
-# KalmanFilter.py
 import numpy as np
 
 class KalmanFilter:
@@ -15,7 +14,6 @@ class KalmanFilter:
 
     def predict(self):
 
-        # rebuild transition matrix for time step dt
         self.F = np.array([
             [1, 0, 1, 0],
             [0, 1, 0, 1],
@@ -28,7 +26,7 @@ class KalmanFilter:
         return self.x
 
     def predict_with_dt(self, dt):
-        # rebuild transition matrix for time step dt
+
         self.F = np.array([
             [1, 0, dt, 0],
             [0, 1, 0, dt],
@@ -51,12 +49,12 @@ class KalmanFilter:
         return self.x
 
     def gating_distance(self, dets):
-        x = self.x[:2].reshape((2,))  # (2,)
+        x = self.x[:2].reshape((2,))
         S = self.H @ self.P @ self.H.T + self.R
         invS = np.linalg.inv(S)
         dists = []
         for det in dets:
             y = np.array(det).reshape((2,)) - x  # (2,)
-            d = float(np.dot(np.dot(y.T, invS), y))  # skalar
+            d = float(np.dot(np.dot(y.T, invS), y))
             dists.append(d)
         return np.array(dists)

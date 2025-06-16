@@ -25,7 +25,6 @@ class RegionManager:
             return
         self._load_from_file(self.polygons_file)
 
-        # ----- BEGIN COUNTER RESET LOGIC -----
         if self.crosswalk_packs:
             max_pid = max(pack.id for pack in self.crosswalk_packs)
         else:

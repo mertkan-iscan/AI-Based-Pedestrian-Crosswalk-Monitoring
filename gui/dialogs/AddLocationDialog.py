@@ -16,12 +16,12 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
 
-        # Location name
+        # location name
         layout.addWidget(QtWidgets.QLabel("Location Name:"))
         self.name_edit = QtWidgets.QLineEdit()
         layout.addWidget(self.name_edit)
 
-        # Source type selection
+        # source type selection
         type_group = QtWidgets.QGroupBox("Source Type:")
         type_layout = QtWidgets.QHBoxLayout(type_group)
         self.stream_radio = QtWidgets.QRadioButton("Live Stream")
@@ -31,7 +31,7 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
         type_layout.addWidget(self.video_radio)
         layout.addWidget(type_group)
 
-        # Stream URL field
+        # stream URL field
         self.stream_widget = QtWidgets.QWidget()
         stream_layout = QtWidgets.QVBoxLayout(self.stream_widget)
         stream_layout.addWidget(QtWidgets.QLabel("Stream URL:"))
@@ -39,7 +39,7 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
         stream_layout.addWidget(self.stream_edit)
         layout.addWidget(self.stream_widget)
 
-        # Video file field
+        # video file field
         self.video_widget = QtWidgets.QWidget()
         video_layout = QtWidgets.QVBoxLayout(self.video_widget)
         video_layout.addWidget(QtWidgets.QLabel("Video File:"))
@@ -54,7 +54,7 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
         video_layout.addLayout(row)
         layout.addWidget(self.video_widget)
 
-        # Bird’s-eye image upload
+        # bev image upload
         upload_btn = QtWidgets.QPushButton("Upload Bird’s-Eye Image")
         upload_btn.clicked.connect(lambda: self.browse_bird_image(self.birdImageLabel))
         self.birdImageLabel = QtWidgets.QLabel()
@@ -64,7 +64,7 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
         layout.addWidget(upload_btn)
         layout.addWidget(self.birdImageLabel)
 
-        # Homography setter
+        # homography setter
         homo_btn = QtWidgets.QPushButton("Set Homography")
 
         homo_btn.clicked.connect(lambda: self.set_homography(
@@ -76,7 +76,7 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
         layout.addWidget(homo_btn)
         layout.addWidget(self.homo_status)
 
-        # Dialog buttons
+        # dialog buttons
         btns = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
         )
@@ -84,7 +84,7 @@ class AddLocationDialog(QtWidgets.QDialog, LocationDialogHelper):
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
 
-        # Toggle between source fields
+        # toggle between source fields
         self.stream_radio.toggled.connect(self.toggle_source_fields)
         self.video_radio.toggled.connect(self.toggle_source_fields)
         self.toggle_source_fields()

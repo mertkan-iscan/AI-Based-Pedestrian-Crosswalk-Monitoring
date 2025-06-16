@@ -9,6 +9,7 @@ from utils.RegionManager import RegionManager
 
 from stream.SingleFrameExtractor import SingleFrameExtractor
 
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -142,10 +143,9 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = EditLocationDialog(self.selected_location, self)
 
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            # The dialog already wrote locations.json and renamed the JSON file.
             new_loc = dialog.get_updated_location()
 
-            # Update the in-memory selection and refresh the UI
+            #update the in memory selection and refresh the UI
             self.selected_location = new_loc
             self.refresh_lists()
 
@@ -160,24 +160,32 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.selected_location:
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
             return
+
         from gui.dialogs.EditConfigDialog import EditConfigDialog
+
         dialog = EditConfigDialog(self.selected_location, self)
+
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             lm = LocationManager()
             self.locations = lm.load_locations()
 
     def delete_location(self):
+
         if not self.selected_location:
             QtWidgets.QMessageBox.critical(self, "Error", "Please select a location first.")
             return
+
         confirmation = QtWidgets.QMessageBox(self)
         confirmation.setIcon(QtWidgets.QMessageBox.Warning)
         confirmation.setWindowTitle("Confirm Delete")
+
         confirmation.setText(
             f"Are you sure you want to delete '{self.selected_location['name']}'?\nThis action cannot be undone."
         )
+
         confirmation.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         confirmation.setDefaultButton(QtWidgets.QMessageBox.No)
+
         if confirmation.exec_() == QtWidgets.QMessageBox.Yes:
             LocationManager().delete_location(self.selected_location)
             self.selected_location = None

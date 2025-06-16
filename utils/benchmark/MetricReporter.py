@@ -1,4 +1,3 @@
-# utils/benchmark/MetricReporter.py
 from PyQt5.QtCore import QObject, pyqtSlot
 from utils.benchmark.Benchmark import Benchmark
 
@@ -19,7 +18,6 @@ class MetricReporter(QObject):
     def on_delay(self, dt):
         Benchmark.instance().log_delay(dt)
 
-    # NEW slots:
     @pyqtSlot(float)
     def on_queue_wait(self, dt):
         Benchmark.instance().log_queue_wait(dt)

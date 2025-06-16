@@ -33,27 +33,35 @@ class RegionLayer(QtWidgets.QWidget):
         }
         ow, oh = self.original_frame_size
         sw, sh = self.scaled_pixmap_size
+
         scale = min(sw / ow, sh / oh) if ow and oh else 1.0
         off_x = (self.width() - ow * scale) / 2
         off_y = (self.height() - oh * scale) / 2
+
         for region in self.regions:
             rtype = region.get("type", "")
             pts = region.get("points", [])
+
             if len(pts) == 0:
                 continue
+
             poly = np.array(pts, np.int32)
             poly = ((poly * scale) + np.array([off_x, off_y])).astype(int)
             color = color_map.get(rtype, QtGui.QColor(255, 0, 0, 60))
+
             if rtype == "deletion_line":
                 painter.setPen(QtGui.QPen(color, 3))
                 painter.setBrush(QtCore.Qt.NoBrush)
                 painter.drawPolyline(QtGui.QPolygon([QtCore.QPoint(pt[0], pt[1]) for pt in poly]))
+
             elif rtype == "crop_area" and len(pts) == 2:
                 painter.setPen(QtGui.QPen(color, 2))
                 painter.setBrush(color)
                 painter.drawRect(QtCore.QRect(QtCore.QPoint(*poly[0]), QtCore.QPoint(*poly[1])))
+
             else:
                 painter.setPen(QtGui.QPen(color, 2))
                 painter.setBrush(color)
                 painter.drawPolygon(QtGui.QPolygon([QtCore.QPoint(pt[0], pt[1]) for pt in poly]))
+
         painter.end()

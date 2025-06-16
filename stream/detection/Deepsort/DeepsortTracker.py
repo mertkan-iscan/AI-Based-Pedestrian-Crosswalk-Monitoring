@@ -200,39 +200,6 @@ class DeepSortTracker:
                     (x1, y1, x2, y2, cls, conf),
                     batch_features[i]
                 ))
-        else:
-            for i, rect in enumerate(rects):
-                if len(rect) == 6:
-                    x1, y1, x2, y2, cls, conf = rect
-                else:
-                    x1, y1, x2, y2, cls = rect
-                    conf = None
-
-                if self.homography_matrix is not None:
-                    spx = int((x1 + x2) / 2.0)
-                    spy = int(y2)
-                    calibrated = self.calibrate_point((spx, spy), self.homography_matrix)
-                else:
-                    cX = int((x1 + x2) / 2.0)
-                    cY = int((y1 + y2) / 2.0)
-                    calibrated = (cX, cY)
-
-                if features is not None:
-                    det_feat = features[i]
-                else:
-                    crop = frame[y1:y2, x1:x2]
-                    if cls == PERSON_CLASS_IDX:
-                        det_feat = self.person_extractor.extract_features([crop])[0]
-                    elif cls in VEHICLE_CLASSES:
-                        det_feat = self.vehicle_extractor.extract_features([crop])[0]
-                    else:
-                        det_feat = self.person_extractor.extract_features([crop])[0]
-
-                detections.append((
-                    calibrated,
-                    (x1, y1, x2, y2, cls, conf),
-                    det_feat
-                ))
 
         cost_matrix, motion_matrix, appearance_matrix = self._compute_cost(
             detections, timestamp, detection_fps=detection_fps
