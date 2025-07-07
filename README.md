@@ -36,7 +36,7 @@ A real-time, AI-powered system for monitoring crosswalks at urban intersections.
 
 ## System Requirements
 
-- Windows or Linux (tested on both)
+- Windows or Linux
 - Python 3.8+
 - Modern GPU for real-time performance (recommended)
 - Required Python packages: `PyQt5`, `opencv-python`, `torch`, `numpy`, `pandas`
