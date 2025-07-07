@@ -91,8 +91,8 @@ Save or export event logs/statistics for safety analysis.
 
 ## Demo and Documentation
 
-- **YouTube Video Demo:** [Watch on YouTube]([https://lnkd.in/dSYrW4_d](https://www.youtube.com/watch?v=OXApLUkpCKs&t=1s&ab_channel=Mertkan%C4%B0%C5%9Fcan&themeRefresh=1))
-- **Project Report:** [View Project Report (PDF)]([https://lnkd.in/dhxnGaB9](https://drive.google.com/file/d/16o8PjLWfgXzxAcEgbnVTTy10vbQxEkMz/view?pli=1))
+- **YouTube Video Demo:** [Watch on YouTube](https://lnkd.in/dSYrW4_d](https://www.youtube.com/watch?v=OXApLUkpCKs&t=1s&ab_channel=Mertkan%C4%B0%C5%9Fcan&themeRefresh=1)](https://youtu.be/OXApLUkpCKs?si=KPswHYwLFcSi0_jt))
+- **Project Report:** [View Project Report (PDF)](https://lnkd.in/dhxnGaB9](https://drive.google.com/file/d/16o8PjLWfgXzxAcEgbnVTTy10vbQxEkMz/view?pli=1))
 
 ## Author
 
