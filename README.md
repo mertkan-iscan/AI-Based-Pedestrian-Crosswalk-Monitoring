@@ -89,6 +89,11 @@ Save or export event logs/statistics for safety analysis.
 - Supports one video stream at a time in this version.
 - Best results in stable lighting conditions and with camera placement that covers the crosswalk clearly.
 
+## Demo and Documentation
+
+- **YouTube Video Demo:** [Watch on YouTube](https://lnkd.in/dSYrW4_d)
+- **Project Report:** [View Project Report (PDF)](https://lnkd.in/dhxnGaB9)
+
 ## Author
 
 Mertkan İşcan
